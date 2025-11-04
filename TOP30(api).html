@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주식 Top30 데이터</title>
+    <!-- SheetJS 라이브러리 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* CSS 코드는 동일하게 유지 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .controls {
+            padding: 25px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex: 1;
+        }
+        
+        #urlInput {
+            flex: 1;
+            min-width: 300px;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        #urlInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-copy {
+            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        }
+        
+        .btn-copy:hover:not(:disabled) {
+            box-shadow: 0 5px 15px rgba(0, 176, 155, 0.4);
+        }
+        
+        .btn-nav {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            padding: 12px 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .btn-nav:hover:not(:disabled) {
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-settings {
+            background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .btn-upload {
+            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .btn-export {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .btn-import {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .date-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .current-date {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 150px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .current-date:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .calendar-popup {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 15px;
+            z-index: 1000;
+            min-width: 280px;
+            margin-top: 5px;
+        }
+        
+        .settings-calendar-popup {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 15px;
+            z-index: 1001;
+            min-width: 280px;
+            margin-top: 5px;
+        }
+        
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .calendar-nav {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .calendar-nav:hover {
+            background: #f8f9fa;
+        }
+        
+        .calendar-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        
+        .calendar-weekday {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            padding: 5px;
+            font-weight: 600;
+        }
+        
+        .calendar-day {
+            text-align: center;
+            padding: 8px 5px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .calendar-day:hover {
+            background: #e3f2fd;
+        }
+        
+        .calendar-day.saturday {
+            color: #3498db !important;
+        }
+        
+        .calendar-day.sunday {
+            color: #e74c3c !important;
+        }
+        
+        .calendar-day.holiday {
+            color: #e74c3c !important;
+            background: #ffeaea;
+        }
+        
+        .calendar-day.today {
+            background: #667eea;
+            color: white !important;
+        }
+        
+        .calendar-day.selected {
+            background: #27ae60;
+            color: white !important;
+        }
+        
+        .calendar-day.disabled {
+            color: #ccc !important;
+            cursor: not-allowed;
+            background: #f8f9fa;
+        }
+        
+        .calendar-day.disabled:hover {
+            background: #f8f9fa;
+        }
+        
+        .status {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .loading {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #ffeaea;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .success {
+            color: #27ae60;
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            padding: 40px;
+            min-height: 600px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 16px;
+            min-width: 800px;
+        }
+        
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 15px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            font-size: 16px;
+        }
+        
+        td {
+            padding: 18px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 15px;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        tr:hover {
+            background-color: #e3f2fd;
+            transition: all 0.2s ease;
+        }
+        
+        .date {
+            color: #95a5a6;
+            font-size: 14px;
+            width: 120px;
+        }
+        
+        .theme-main {
+            background: #e8f5e8;
+            color: #27ae60;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .theme-sub {
+            background: #e3f2fd;
+            color: #2980b9;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .stock-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 15px;
+        }
+        
+        .rise-rate {
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: right;
+            width: 120px;
+            font-size: 15px;
+        }
+        
+        .reason {
+            font-size: 14px;
+            color: #7f8c8d;
+            line-height: 1.5;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .settings-panel {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .settings-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .settings-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            align-items: end;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            position: relative;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        .form-group input {
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .file-input {
+            padding: 8px !important;
+        }
+        
+        .settings-date-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 5px;
+            position: relative;
+        }
+        
+        .settings-date {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            cursor: pointer;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .settings-date:hover {
+            border-color: #667eea;
+        }
+        
+        .upload-info {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #27ae60;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .backup-section {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+            margin-top: 20px;
+        }
+        
+        .backup-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            #urlInput {
+                min-width: 100%;
+            }
+            
+            .button-group {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+            
+            .button-group .btn {
+                flex: 1;
+            }
+            
+            .settings-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .backup-buttons {
+                flex-direction: column;
+            }
+            
+            table {
+                font-size: 14px;
+            }
+            
+            th, td {
+                padding: 12px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 주식 Top30 데이터</h1>
+            <p>실제 주식정보 사이트 데이터를 정확히 파싱합니다</p>
+        </div>
+        
+        <div class="card">
+            <div class="controls">
+                <div class="input-group">
+                    <input type="text" id="urlInput" 
+                           placeholder="데이터를 가져올 URL을 입력하세요">
+                    <div class="date-controls">
+                        <button class="btn btn-nav" id="prevBtn" onclick="navigateDate(-1)">◀◀</button>
+                        <div class="current-date" id="currentDate" onclick="toggleCalendar()">-</div>
+                        <button class="btn btn-nav" id="nextBtn" onclick="navigateDate(1)">▶▶</button>
+                        <div id="calendar" class="calendar-popup" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn" id="fetchBtn" onclick="fetchData()">
+                        🔄 데이터 가져오기
+                    </button>
+                    <button class="btn btn-copy" onclick="copyToExcel()">
+                        📋 엑셀 복사
+                    </button>
+                    <button class="btn btn-settings" onclick="toggleSettings()">
+                        ⚙️ 설정
+                    </button>
+                    <button class="btn btn-settings" onclick="showCacheInfo()">
+                        🔍 캐시정보
+                    </button>
+                </div>
+            </div>
+
+            <!-- 설정 패널 -->
+            <div id="settingsPanel" class="settings-panel" style="display: none;">
+                <div class="settings-title">기준 설정</div>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="baseUrlInput">기본 URL</label>
+                        <input type="text" id="baseUrlInput" placeholder="https://stockinfo7.com/stock/top30/text/">
+                    </div>
+                    <div class="form-group">
+                        <label for="baseIdInput">기준 ID</label>
+                        <input type="number" id="baseIdInput" placeholder="1537">
+                    </div>
+                    <div class="form-group">
+                        <label for="baseDateDisplay">기준 날짜</label>
+                        <div class="settings-date-controls">
+                            <div class="settings-date" id="baseDateDisplay" onclick="toggleSettingsCalendar(this)">날짜 선택</div>
+                            <div id="settingsCalendar" class="settings-calendar-popup" style="display: none;"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="apiKeyInput">한국 공공데이터 API 키</label>
+                        <input type="text" id="apiKeyInput" placeholder="공공데이터 API 서비스 키 입력">
+                        <small style="color: #666; margin-top: 5px;">
+                            <a href="https://www.data.go.kr/" target="_blank">공공데이터포털</a>에서 "공휴일 정보" API 신청 후 발급받은 서비스 키를 입력하세요.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-settings" onclick="saveBaseSettings()" style="margin-top: 10px;">
+                            💾 설정 저장
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-title" style="margin-top: 30px;">테마 데이터 관리</div>
+                <div class="settings-form">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="excelFileUpload">엑셀 파일 업로드</label>
+                        <input type="file" id="excelFileUpload" accept=".xlsx,.xls,.csv" class="file-input">
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn btn-upload" onclick="uploadExcelFile()">
+                                📤 파일 업로드
+                            </button>
+                            <button class="btn btn-settings" onclick="clearThemeData()">
+                                🗑️ 데이터 초기화
+                            </button>
+                        </div>
+                        <small style="color: #666; margin-top: 5px;">
+                            지원 형식: .xlsx, .xls, .csv (컬럼: 종목명, 테마(대), 테마(소))
+                        </small>
+                    </div>
+                </div>
+
+                <!-- 업로드 정보 표시 -->
+                <div id="uploadInfo" class="upload-info" style="display: none;"></div>
+
+                <!-- 🔥 백업/복원 섹션 추가 -->
+                <div class="backup-section">
+                    <div class="settings-title">📁 데이터 백업 및 복원</div>
+                    <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                        모든 설정, 테마 데이터, 캐시 데이터를 JSON 파일로 백업하거나 복원합니다.
+                    </p>
+                    <div class="backup-buttons">
+                        <button class="btn btn-export" onclick="exportAllData()">
+                            💾 전체 데이터 내보내기
+                        </button>
+                        <button class="btn btn-import" onclick="document.getElementById('importFile').click()">
+                            📥 데이터 가져오기
+                        </button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importAllData(this.files[0])">
+                        <button class="btn btn-settings" onclick="clearAllData()">
+                            🗑️ 모든 데이터 초기화
+                        </button>
+                    </div>
+                    <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                        <strong>백업 내용:</strong> 기본 설정, 테마 데이터, 데이터 캐시, 날짜 매핑
+                    </div>
+                </div>
+            </div>
+            
+            <div id="status" class="status">
+                <div id="loading" class="loading" style="display: none;">
+                    ⏳ 데이터를 불러오는 중...
+                </div>
+                <div id="error" class="error" style="display: none;"></div>
+                <div id="success" class="success" style="display: none;"></div>
+            </div>
+            
+            <div class="table-container">
+                <div id="tableContainer">
+                    <!-- 테이블이 여기에 생성됩니다 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 기본 설정값
+        let baseUrl = 'https://stockinfo7.com/stock/top30/text/';
+        let baseId = 1537;
+        let baseDate = new Date('2025-10-21');
+        
+        let currentId = baseId;
+        let isFetching = false;
+        let currentRealDate = '';
+        let calendarVisible = false;
+        let currentCalendarDate = new Date();
+        let settingsCalendarVisible = false;
+
+        // 🔥 한국 공공데이터 API 서비스 키 (실제 키로 교체 필요)
+        let SERVICE_KEY = '';
+
+        // 🔥 데이터 캐시 시스템
+        let dataCache = new Map(); // ID를 키로 데이터 저장
+        let dateToIdCache = new Map(); // 날짜 문자열을 키로 ID 저장
+
+        // 공휴일 캐시 (API에서 가져온 데이터 저장)
+        let holidaysCache = {};
+
+        // 엑셀 테마 데이터 캐시
+        let themeDataCache = null;
+        let currentThemeFileName = '';
+
+        // 날짜-ID 매핑 캐시
+        let dateIdCache = new Map();
+
+        // 🔥 API 키 로드 함수
+        function loadApiKey() {
+            const savedKey = localStorage.getItem('koreanApiServiceKey');
+            if (savedKey) {
+                SERVICE_KEY = savedKey;
+                document.getElementById('apiKeyInput').value = savedKey;
+            }
+        }
+
+        // 🔥 URL 디코딩 함수 (공공데이터 API 키에 따라)
+        function decodeServiceKey(encodedKey) {
+            try {
+                // 공공데이터 API 키가 URL 인코딩된 경우 디코딩
+                return decodeURIComponent(encodedKey);
+            } catch (error) {
+                console.error('서비스 키 디코딩 실패:', error);
+                return encodedKey;
+            }
+        }
+
+        // 🔥 한국 공공데이터 API에서 공휴일 데이터 가져오기
+        async function fetchHolidaysFromKoreanAPI(year) {
+            try {
+                if (!SERVICE_KEY) {
+                    throw new Error('공공데이터 API 키가 설정되지 않았습니다.');
+                }
+
+                // 디코딩된 서비스 키 사용
+                const decodedKey = decodeServiceKey(SERVICE_KEY);
+                
+                // CORS 프록시를 통한 API 호출 (공공데이터 API는 CORS 제한이 있을 수 있음)
+                const proxyUrl = 'https://corsproxy.io/?';
+                const apiUrl = `http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?serviceKey=${decodedKey}&solYear=${year}&numOfRows=100&_type=json`;
+                
+                console.log(`공휴일 API 호출: ${year}년`);
+                
+                const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
+                if (!response.ok) {
+                    throw new Error(`API 호출 실패: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // 응답 데이터 구조 파싱
+                if (data.response && data.response.body && data.response.body.items) {
+                    const holidays = data.response.body.items.item || [];
+                    const holidayDates = holidays.map(holiday => {
+                        const dateStr = holiday.locdate.toString();
+                        const year = dateStr.substring(0, 4);
+                        const month = dateStr.substring(4, 6);
+                        const day = dateStr.substring(6, 8);
+                        return `${year}.${month}.${day}`;
+                    });
+                    
+                    console.log(`${year}년 공휴일 ${holidayDates.length}개 로드됨:`, holidayDates);
+                    return holidayDates;
+                } else {
+                    throw new Error('공휴일 데이터를 찾을 수 없습니다.');
+                }
+            } catch (error) {
+                console.error(`${year}년 공휴일 API 호출 실패:`, error);
+                return getDefaultHolidays(year); // 실패시 기본 데이터 사용
+            }
+        }
+
+        // 🔥 기본 공휴일 데이터 (API 실패시 사용)
+        function getDefaultHolidays(year) {
+            const defaultHolidays = {
+                '2025': [
+                    '2025.01.01', '2025.01.27', '2025.01.28', '2025.01.29', '2025.01.30',
+                    '2025.03.01', '2025.03.03', '2025.05.05', '2025.05.06', '2025.06.03',
+                    '2025.06.06', '2025.08.15', '2025.10.03', '2025.10.05', '2025.10.06',
+                    '2025.10.07', '2025.10.08', '2025.10.09', '2025.12.25'
+                ],
+                '2026': [
+                    '2026.01.01', '2026.02.16', '2026.02.17', '2026.02.18', '2026.02.19',
+                    '2026.03.01', '2026.03.02', '2026.05.05', '2026.06.06', '2026.08.15',
+                    '2026.09.24', '2026.09.25', '2026.09.26', '2026.10.05', '2026.12.25'
+                ]
+            };
+            return defaultHolidays[year] || [];
+        }
+
+        // 🔥 수정된 공휴일 로드 함수 - 한국 공공데이터 API 사용
+        async function loadHolidaysForYear(year) {
+            if (!holidaysCache[year]) {
+                try {
+                    // 한국 공공데이터 API 사용
+                    holidaysCache[year] = await fetchHolidaysFromKoreanAPI(year);
+                } catch (error) {
+                    console.error('한국 공공데이터 API 실패, 기본 데이터 사용:', error);
+                    holidaysCache[year] = getDefaultHolidays(year);
+                }
+            }
+            return holidaysCache[year];
+        }
+
+        // 🔥 현재 시간에 따라 자동으로 날짜 결정하는 함수
+        function getTargetDateByCurrentTime() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinutes = now.getMinutes();
+            
+            // 오후 9시(21시) 기준으로 판단
+            if (currentHour > 21 || (currentHour === 21 && currentMinutes >= 0)) {
+                // 오후 9시 이후: 오늘 날짜
+                return new Date();
+            } else {
+                // 오후 9시 이전: 어제 날짜
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                return yesterday;
+            }
+        }
+
+        // 🔥 가장 최근 거래일을 찾는 함수
+        async function findLatestTradingDay(targetDate) {
+            let checkDate = new Date(targetDate);
+            let daysChecked = 0;
+            const maxDaysToCheck = 10; // 최대 10일까지 확인 (주말, 공휴일 고려)
+            
+            while (daysChecked < maxDaysToCheck) {
+                if (await isTradingDay(checkDate)) {
+                    return checkDate;
+                }
+                // 이전 날짜로 이동
+                checkDate.setDate(checkDate.getDate() - 1);
+                daysChecked++;
+            }
+            
+            // 거래일을 찾지 못한 경우 기본값 반환
+            return targetDate;
+        }
+
+        // 🔥 초기화 함수 수정 - 현재 시간에 따라 자동으로 날짜 설정
+        async function initialize() {
+            loadBaseSettings();
+            loadApiKey(); // API 키 로드
+            
+            // 현재 시간에 따라 타겟 날짜 결정
+            const targetDate = getTargetDateByCurrentTime();
+            const tradingDate = await findLatestTradingDay(targetDate);
+            
+            // 타겟 날짜에 해당하는 ID 계산
+            currentId = await getTradingDayIdFromDate(tradingDate);
+            
+            updateUrlInput();
+            await updateDateDisplay();
+            
+            // 공휴일 데이터 미리 로드 (한국 API 사용)
+            await loadHolidaysForYear(2025);
+            await loadHolidaysForYear(2026);
+            
+            // 테마 데이터 로드
+            await loadThemeData();
+            
+            // 🔥 캐시 데이터 로드
+            loadCacheData();
+            
+            // 자동으로 데이터 가져오기
+            fetchData();
+            
+            document.addEventListener('click', function(event) {
+                const calendar = document.getElementById('calendar');
+                const currentDate = document.getElementById('currentDate');
+                const settingsCalendar = document.getElementById('settingsCalendar');
+                const baseDateDisplay = document.getElementById('baseDateDisplay');
+                
+                if (calendarVisible && 
+                    !calendar.contains(event.target) && 
+                    !currentDate.contains(event.target)) {
+                    hideCalendar();
+                }
+                
+                if (settingsCalendarVisible && 
+                    !settingsCalendar.contains(event.target) && 
+                    !baseDateDisplay.contains(event.target)) {
+                    hideSettingsCalendar();
+                }
+            });
+        }
+
+        // 🔥 모든 데이터를 JSON으로 내보내기
+        function exportAllData() {
+            try {
+                // 모든 데이터 수집
+                const exportData = {
+                    metadata: {
+                        version: '1.0',
+                        exportDate: new Date().toISOString(),
+                        description: '주식 Top30 데이터 백업'
+                    },
+                    baseSettings: {
+                        baseUrl: baseUrl,
+                        baseId: baseId,
+                        baseDate: baseDate.toISOString()
+                    },
+                    themeData: {
+                        data: themeDataCache,
+                        fileName: currentThemeFileName
+                    },
+                    cacheData: {
+                        dataCache: Array.from(dataCache.entries()),
+                        dateToIdCache: Array.from(dateToIdCache.entries()),
+                        dateIdCache: Array.from(dateIdCache.entries())
+                    },
+                    currentState: {
+                        currentId: currentId,
+                        currentRealDate: currentRealDate
+                    },
+                    apiSettings: {
+                        serviceKey: SERVICE_KEY
+                    }
+                };
+
+                // JSON 문자열로 변환
+                const jsonString = JSON.stringify(exportData, null, 2);
+                
+                // 파일로 다운로드
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stock_data_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showSuccess('모든 데이터가 JSON 파일로 내보내졌습니다!');
+                console.log('내보낸 데이터:', exportData);
+            } catch (error) {
+                console.error('데이터 내보내기 오류:', error);
+                showError('데이터 내보내기 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        // 🔥 JSON 파일에서 모든 데이터 가져오기
+        function importAllData(file) {
+            if (!file) {
+                showError('파일을 선택해주세요.');
+                return;
+            }
+
+            if (!confirm('기존 데이터를 모두 덮어쓰고 새 데이터로 교체하시겠습니까?')) {
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const importData = JSON.parse(e.target.result);
+                    
+                    // 데이터 유효성 검사
+                    if (!importData.metadata || !importData.baseSettings) {
+                        throw new Error('잘못된 데이터 형식입니다.');
+                    }
+
+                    // 기본 설정 복원
+                    if (importData.baseSettings) {
+                        baseUrl = importData.baseSettings.baseUrl || baseUrl;
+                        baseId = importData.baseSettings.baseId || baseId;
+                        baseDate = new Date(importData.baseSettings.baseDate || baseDate);
+                        currentId = importData.currentState?.currentId || baseId;
+                        
+                        // UI 업데이트
+                        document.getElementById('baseUrlInput').value = baseUrl;
+                        document.getElementById('baseIdInput').value = baseId;
+                        document.getElementById('baseDateDisplay').textContent = formatDate(baseDate);
+                        updateUrlInput();
+                    }
+
+                    // 테마 데이터 복원
+                    if (importData.themeData) {
+                        themeDataCache = importData.themeData.data || {};
+                        currentThemeFileName = importData.themeData.fileName || '';
+                        localStorage.setItem('themeData', JSON.stringify(themeDataCache));
+                        localStorage.setItem('themeDataFileName', currentThemeFileName);
+                        updateUploadInfo();
+                    }
+
+                    // 캐시 데이터 복원
+                    if (importData.cacheData) {
+                        dataCache = new Map(importData.cacheData.dataCache || []);
+                        dateToIdCache = new Map(importData.cacheData.dateToIdCache || []);
+                        dateIdCache = new Map(importData.cacheData.dateIdCache || []);
+                        
+                        // 로컬스토리지에 캐시 저장
+                        localStorage.setItem('dataCache', JSON.stringify(Array.from(dataCache.entries())));
+                        localStorage.setItem('dateToIdCache', JSON.stringify(Array.from(dateToIdCache.entries())));
+                        localStorage.setItem('dateIdCache', JSON.stringify(Array.from(dateIdCache.entries())));
+                    }
+
+                    // API 설정 복원
+                    if (importData.apiSettings) {
+                        SERVICE_KEY = importData.apiSettings.serviceKey || SERVICE_KEY;
+                        localStorage.setItem('koreanApiServiceKey', SERVICE_KEY);
+                        document.getElementById('apiKeyInput').value = SERVICE_KEY;
+                    }
+
+                    // 현재 상태 복원
+                    if (importData.currentState) {
+                        currentRealDate = importData.currentState.currentRealDate || '';
+                    }
+
+                    // 기본 설정 저장
+                    localStorage.setItem('stockBaseUrl', baseUrl);
+                    localStorage.setItem('stockBaseId', baseId.toString());
+                    localStorage.setItem('stockBaseDate', baseDate.toISOString());
+
+                    showSuccess('모든 데이터가 성공적으로 가져와졌습니다!');
+                    console.log('가져온 데이터:', importData);
+                    
+                    // 화면 새로고침
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('데이터 가져오기 오류:', error);
+                    showError('데이터 가져오기 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('파일 읽기 오류가 발생했습니다.');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // 🔥 캐시 데이터 로드 함수
+        function loadCacheData() {
+            try {
+                // 데이터 캐시 로드
+                const savedDataCache = localStorage.getItem('dataCache');
+                if (savedDataCache) {
+                    const cacheArray = JSON.parse(savedDataCache);
+                    dataCache = new Map(cacheArray);
+                    console.log(`캐시에서 데이터 로드: ${dataCache.size}개`);
+                }
+
+                // 날짜-ID 매핑 캐시 로드
+                const savedDateToIdCache = localStorage.getItem('dateToIdCache');
+                if (savedDateToIdCache) {
+                    const mappingArray = JSON.parse(savedDateToIdCache);
+                    dateToIdCache = new Map(mappingArray);
+                    console.log(`캐시에서 날짜 매핑 로드: ${dateToIdCache.size}개`);
+                }
+
+                // 날짜-ID 캐시 로드
+                const savedDateIdCache = localStorage.getItem('dateIdCache');
+                if (savedDateIdCache) {
+                    const dateIdArray = JSON.parse(savedDateIdCache);
+                    dateIdCache = new Map(dateIdArray);
+                }
+            } catch (error) {
+                console.error('캐시 데이터 로드 실패:', error);
+            }
+        }
+
+        // 🔥 캐시 데이터 저장 함수
+        function saveCacheData() {
+            try {
+                localStorage.setItem('dataCache', JSON.stringify(Array.from(dataCache.entries())));
+                localStorage.setItem('dateToIdCache', JSON.stringify(Array.from(dateToIdCache.entries())));
+                localStorage.setItem('dateIdCache', JSON.stringify(Array.from(dateIdCache.entries())));
+            } catch (error) {
+                console.error('캐시 데이터 저장 실패:', error);
+            }
+        }
+
+        // 🔥 모든 데이터 초기화 함수
+        function clearAllData() {
+            if (!confirm('정말로 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+
+            try {
+                // 로컬스토리지 클리어
+                localStorage.clear();
+                
+                // 메모리 캐시 클리어
+                dataCache.clear();
+                dateToIdCache.clear();
+                dateIdCache.clear();
+                holidaysCache = {};
+                themeDataCache = null;
+                currentThemeFileName = '';
+                SERVICE_KEY = '';
+                
+                // 기본값으로 재설정
+                baseUrl = 'https://stockinfo7.com/stock/top30/text/';
+                baseId = 1537;
+                baseDate = new Date('2025-10-21');
+                currentId = baseId;
+                currentRealDate = '';
+                
+                // UI 업데이트
+                document.getElementById('baseUrlInput').value = baseUrl;
+                document.getElementById('baseIdInput').value = baseId;
+                document.getElementById('baseDateDisplay').textContent = formatDate(baseDate);
+                document.getElementById('apiKeyInput').value = '';
+                updateUrlInput();
+                updateUploadInfo();
+                
+                showSuccess('모든 데이터가 초기화되었습니다!');
+                
+                // 화면 새로고침
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('데이터 초기화 오류:', error);
+                showError('데이터 초기화 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        // 🔥 수정된 fetchData 함수 - 캐시 저장 추가
+        async function fetchData() {
+            const url = document.getElementById('urlInput').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const success = document.getElementById('success');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            if (!url) {
+                showError('URL을 입력해주세요.');
+                return;
+            }
+            
+            // 🔥 캐시 확인 - 이미 불러온 데이터면 즉시 표시
+            if (dataCache.has(currentId)) {
+                console.log(`캐시에서 데이터 로드: ID ${currentId}`);
+                const cachedData = dataCache.get(currentId);
+                currentRealDate = cachedData.date;
+                createTable(cachedData.data);
+                await updateDateDisplay();
+                showSuccess('캐시에서 데이터를 불러왔습니다!');
+                return;
+            }
+            
+            if (isFetching) return;
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            success.style.display = 'none';
+            tableContainer.innerHTML = '';
+            updateButtonState(true);
+            
+            try {
+                const proxyUrls = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?',
+                    'https://api.codetabs.com/v1/proxy?quest=',
+                    'https://cors-anywhere.herokuapp.com/',
+                    ''
+                ];
+                
+                let response = null;
+                let lastError = null;
+                
+                for (const proxyUrl of proxyUrls) {
+                    try {
+                        const targetUrl = proxyUrl + (proxyUrl ? encodeURIComponent(url) : url);
+                        console.log('프록시 시도:', proxyUrl);
+                        
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                        
+                        response = await fetch(targetUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                            },
+                            mode: 'cors',
+                            cache: 'no-cache',
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (response.ok) {
+                            console.log('프록시 성공:', proxyUrl);
+                            break;
+                        }
+                    } catch (err) {
+                        lastError = err;
+                        console.log('프록시 실패:', proxyUrl, err);
+                        continue;
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error(lastError?.message || `HTTP error! status: ${response?.status}`);
+                }
+                
+                const html = await response.text();
+                
+                if (!html || html.length < 100) {
+                    throw new Error('데이터가 비어있거나 너무 짧습니다.');
+                }
+                
+                const parsedData = await parseExcelData(html);
+                
+                if (parsedData.data.length === 0) {
+                    throw new Error('데이터를 찾을 수 없습니다. 해당 날짜에 데이터가 없을 수 있습니다.');
+                }
+                
+                currentRealDate = parsedData.date;
+                
+                // 🔥 데이터 캐시에 저장
+                dataCache.set(currentId, {
+                    date: currentRealDate,
+                    data: parsedData.data
+                });
+                
+                // 🔥 날짜-ID 매핑도 캐시에 저장
+                dateToIdCache.set(currentRealDate, currentId);
+                
+                // 🔥 캐시 데이터 저장
+                saveCacheData();
+                
+                await updateDateDisplay();
+                createTable(parsedData.data);
+                showSuccess('데이터를 성공적으로 가져왔습니다!');
+                
+            } catch (err) {
+                console.error('에러:', err);
+                showError('데이터를 가져오는 중 오류가 발생했습니다: ' + err.message);
+                createTable(await generateFallbackData());
+            } finally {
+                loading.style.display = 'none';
+                updateButtonState(false);
+            }
+        }
+
+        // 🔥 캐시 정보 표시 함수
+        function showCacheInfo() {
+            const cacheInfo = {
+                데이터_캐시: dataCache.size,
+                날짜_ID_매핑: dateToIdCache.size,
+                날짜_캐시: dateIdCache.size,
+                테마_데이터: themeDataCache ? Object.keys(themeDataCache).length : 0,
+                공휴일_캐시: Object.keys(holidaysCache).length,
+                API_키_설정: SERVICE_KEY ? '설정됨' : '설정안됨'
+            };
+            
+            console.log('현재 캐시 상태:', cacheInfo);
+            dataCache.forEach((data, id) => {
+                console.log(`  ID ${id}: ${data.date}`);
+            });
+            
+            alert(`캐시 정보:\n` +
+                  `- 저장된 데이터: ${cacheInfo.데이터_캐시}개\n` +
+                  `- 날짜 매핑: ${cacheInfo.날짜_ID_매핑}개\n` +
+                  `- 테마 데이터: ${cacheInfo.테마_데이터}개\n` +
+                  `- 공휴일 데이터: ${cacheInfo.공휴일_캐시}년\n` +
+                  `- API 키: ${cacheInfo.API_키_설정}\n\n` +
+                  `자세한 내용은 콘솔에서 확인하세요.`);
+        }
+
+        // 🔥 정확한 날짜 계산 함수들
+        function formatDate(date) {
+            return `${date.getFullYear()}.${(date.getMonth()+1).toString().padStart(2,'0')}.${date.getDate().toString().padStart(2,'0')}`;
+        }
+
+        async function getDateFromTradingDayId(id) {
+            if (dateIdCache.has(id)) {
+                return new Date(dateIdCache.get(id));
+            }
+            
+            const tradingDayDiff = id - baseId;
+            let currentDate = new Date(baseDate);
+            let tradingDaysCount = 0;
+            const direction = tradingDayDiff > 0 ? 1 : -1;
+            
+            while (tradingDaysCount !== tradingDayDiff) {
+                currentDate.setDate(currentDate.getDate() + direction);
+                if (await isTradingDay(currentDate)) {
+                    tradingDaysCount += direction;
+                }
+            }
+            
+            dateIdCache.set(id, currentDate.toISOString());
+            return currentDate;
+        }
+
+        async function getDateStringFromId(id) {
+            try {
+                const date = await getDateFromTradingDayId(id);
+                return formatDate(date);
+            } catch (error) {
+                console.error('날짜 문자열 변환 실패:', error);
+                return `ID: ${id}`;
+            }
+        }
+
+        async function isTradingDay(date) {
+            const day = date.getDay();
+            const dateString = formatDate(date);
+            
+            if (day === 0 || day === 6) return false;
+            
+            const year = date.getFullYear();
+            const yearHolidays = await loadHolidaysForYear(year);
+            if (yearHolidays.includes(dateString)) return false;
+            
+            return true;
+        }
+
+        async function updateDateDisplay() {
+            const dateDisplay = document.getElementById('currentDate');
+            try {
+                const dateString = await getDateStringFromId(currentId);
+                dateDisplay.textContent = dateString;
+                
+                // 🔥 현재 시간 정보도 표시
+                const now = new Date();
+                const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                const targetDate = getTargetDateByCurrentTime();
+                const timeInfo = targetDate.toDateString() === new Date().toDateString() ? '오늘' : '어제';
+                
+                dateDisplay.title = `현재 시간: ${currentTime} | 기준: ${timeInfo} 데이터`;
+                
+            } catch (error) {
+                dateDisplay.textContent = `ID: ${currentId}`;
+            }
+        }
+
+        // 🔥 수정된 selectDate 함수 - 정확한 날짜 매핑
+        async function selectDate(dateString) {
+            try {
+                const selectedDate = new Date(dateString.replace(/\./g, '-'));
+                
+                // 🔥 정확한 날짜-ID 매핑 계산
+                const newId = await getTradingDayIdFromDate(selectedDate);
+                currentId = Math.max(1, newId);
+                updateUrlInput();
+                hideCalendar();
+                
+                // 🔥 즉시 데이터 가져오기
+                await fetchData();
+                
+            } catch (error) {
+                console.error('날짜 선택 오류:', error);
+                showError('날짜 선택 중 오류: ' + error.message);
+            }
+        }
+
+        // 🔥 수정된 navigateDate 함수 - 날짜 이동 시 캐시 활용
+        async function navigateDate(direction) {
+            try {
+                let newId = currentId + direction;
+                if (newId < 1) newId = 1;
+                
+                currentId = newId;
+                updateUrlInput();
+                
+                // 🔥 캐시 확인 후 데이터 가져오기
+                await fetchData();
+                
+            } catch (error) {
+                console.error('날짜 이동 오류:', error);
+                showError('날짜 이동 중 오류: ' + error.message);
+            }
+        }
+
+        // 🔥 날짜에서 ID 계산 함수 추가
+        async function getTradingDayIdFromDate(targetDate) {
+            // 이미 캐시에 있는지 확인
+            const dateString = formatDate(targetDate);
+            if (dateToIdCache.has(dateString)) {
+                return dateToIdCache.get(dateString);
+            }
+            
+            let currentDate = new Date(baseDate);
+            let tradingDaysCount = 0;
+            const direction = targetDate > baseDate ? 1 : -1;
+            
+            while (currentDate.toDateString() !== targetDate.toDateString()) {
+                currentDate.setDate(currentDate.getDate() + direction);
+                if (await isTradingDay(currentDate)) {
+                    tradingDaysCount += direction;
+                }
+                
+                // 무한 루프 방지
+                if (Math.abs(tradingDaysCount) > 1000) {
+                    throw new Error('날짜 계산 실패: 너무 많은 거래일 차이');
+                }
+            }
+            
+            const newId = baseId + tradingDaysCount;
+            
+            // 캐시에 저장
+            dateToIdCache.set(dateString, newId);
+            dateIdCache.set(newId, targetDate.toISOString());
+            
+            return newId;
+        }
+
+        // 테마 데이터 로드 함수
+        async function loadThemeData() {
+            try {
+                const savedData = localStorage.getItem('themeData');
+                const savedFileName = localStorage.getItem('themeDataFileName');
+                
+                if (savedData) {
+                    themeDataCache = JSON.parse(savedData);
+                    currentThemeFileName = savedFileName || '업로드된 파일';
+                    console.log(`로컬스토리지에서 테마 데이터 로드: ${Object.keys(themeDataCache).length}개 종목`);
+                    updateUploadInfo();
+                } else {
+                    // 기본 예시 데이터
+                    themeDataCache = {
+                        '삼성전자': { main: '반도체', sub: '메모리반도체' },
+                        'SK하이닉스': { main: '반도체', sub: '메모리반도체' },
+                        '현대차': { main: '자동차', sub: '완성차' },
+                        '기아': { main: '자동차', sub: '완성차' },
+                        'LG에너지솔루션': { main: '2차전지', sub: '배터리' },
+                        'POSCO홀딩스': { main: '철강', sub: '제철' },
+                        'NAVER': { main: '인터넷', sub: '플랫폼' },
+                        '카카오': { main: '인터넷', sub: '플랫폼' }
+                    };
+                    currentThemeFileName = '기본 데이터';
+                    console.log('기본 테마 데이터 사용');
+                }
+            } catch (error) {
+                console.error('테마 데이터 로드 실패:', error);
+                themeDataCache = {};
+                currentThemeFileName = '데이터 없음';
+            }
+        }
+
+        // 파일 업로드 처리 함수
+        function uploadExcelFile() {
+            const fileInput = document.getElementById('excelFileUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('엑셀 파일을 선택해주세요.');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                showError('파일 크기가 너무 큽니다. 10MB 이하의 파일을 선택해주세요.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    parseUploadedExcel(data, file.name);
+                } catch (error) {
+                    showError('엑셀 파일 읽기 중 오류: ' + error.message);
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('파일 읽기 오류가 발생했습니다.');
+            };
+            
+            if (file.name.endsWith('.csv')) {
+                reader.readAsText(file, 'UTF-8');
+            } else {
+                reader.readAsBinaryString(file);
+            }
+        }
+
+        // 업로드된 엑셀 파일 파싱
+        function parseUploadedExcel(data, fileName) {
+            try {
+                let jsonData = [];
+                
+                if (fileName.endsWith('.csv')) {
+                    jsonData = parseCSVData(data);
+                } else {
+                    if (typeof XLSX === 'undefined') {
+                        showError('엑셀 파싱 라이브러리를 로드할 수 없습니다.');
+                        return;
+                    }
+                    
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    jsonData = XLSX.utils.sheet_to_json(worksheet);
+                }
+                
+                const newThemeData = {};
+                let validCount = 0;
+                
+                jsonData.forEach((row, index) => {
+                    const stockName = row['종목명'] || row['종목'] || row['Stock'] || row['stock'] || row['name'];
+                    const themeMain = row['테마(대)'] || row['테마대'] || row['대테마'] || row['Main Theme'] || row['main'];
+                    const themeSub = row['테마(소)'] || row['테마소'] || row['소테마'] || row['Sub Theme'] || row['sub'];
+                    
+                    if (stockName && themeMain && themeSub) {
+                        if (!newThemeData[stockName]) {
+                            newThemeData[stockName] = {
+                                main: themeMain,
+                                sub: themeSub
+                            };
+                            validCount++;
+                        }
+                    }
+                });
+                
+                if (validCount === 0) {
+                    showError('유효한 데이터를 찾을 수 없습니다. 컬럼명을 확인해주세요.');
+                    return;
+                }
+                
+                themeDataCache = newThemeData;
+                currentThemeFileName = fileName;
+                
+                localStorage.setItem('themeData', JSON.stringify(themeDataCache));
+                localStorage.setItem('themeDataFileName', fileName);
+                
+                updateUploadInfo();
+                showSuccess(`엑셀 파일에서 ${validCount}개 종목의 테마 데이터를 로드했습니다!`);
+                
+                // 🔥 기존 캐시 데이터에 새 테마 데이터 반영
+                applyNewThemeDataToCache();
+                
+            } catch (error) {
+                console.error('엑셀 파일 파싱 실패:', error);
+                showError('엑셀 파일 파싱 실패: ' + error.message);
+            }
+        }
+
+        // 🔥 새 테마 데이터를 기존 캐시에 반영하는 함수
+        function applyNewThemeDataToCache() {
+            if (!themeDataCache || dataCache.size === 0) return;
+            
+            let updatedCount = 0;
+            
+            // 모든 캐시된 데이터에 대해 테마 정보 업데이트
+            dataCache.forEach((cachedData, id) => {
+                if (cachedData && cachedData.data) {
+                    let hasChanges = false;
+                    
+                    cachedData.data.forEach(item => {
+                        const cleanStockName = item.stockName.replace(/^\d+\.\s*/, '').trim();
+                        
+                        if (themeDataCache[cleanStockName]) {
+                            const oldMain = item.themeMain;
+                            const oldSub = item.themeSub;
+                            const newMain = themeDataCache[cleanStockName].main;
+                            const newSub = themeDataCache[cleanStockName].sub;
+                            
+                            if (oldMain !== newMain || oldSub !== newSub) {
+                                item.themeMain = newMain;
+                                item.themeSub = newSub;
+                                hasChanges = true;
+                                updatedCount++;
+                            }
+                        }
+                    });
+                    
+                    if (hasChanges) {
+                        // 변경사항이 있으면 캐시 업데이트
+                        dataCache.set(id, cachedData);
+                    }
+                }
+            });
+            
+            // 변경된 캐시 저장
+            if (updatedCount > 0) {
+                saveCacheData();
+                console.log(`캐시 데이터 ${updatedCount}개 항목의 테마 정보가 업데이트되었습니다.`);
+                
+                // 현재 표시 중인 테이블도 새로고침
+                if (dataCache.has(currentId)) {
+                    const currentData = dataCache.get(currentId);
+                    createTable(currentData.data);
+                    showSuccess(`테마 데이터가 적용되었습니다! (${updatedCount}개 항목 업데이트)`);
+                }
+            }
+        }
+
+        // CSV 데이터 파싱
+        function parseCSVData(csvText) {
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(',').map(header => header.trim());
+            const result = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const values = line.split(',').map(value => value.trim());
+                const row = {};
+                
+                headers.forEach((header, index) => {
+                    if (values[index]) {
+                        row[header] = values[index];
+                    }
+                });
+                
+                result.push(row);
+            }
+            
+            return result;
+        }
+
+        // 업로드 정보 업데이트
+        function updateUploadInfo() {
+            const uploadInfo = document.getElementById('uploadInfo');
+            if (themeDataCache && Object.keys(themeDataCache).length > 0) {
+                uploadInfo.innerHTML = `
+                    <strong>현재 테마 데이터:</strong> ${currentThemeFileName}<br>
+                    <strong>로드된 종목 수:</strong> ${Object.keys(themeDataCache).length}개
+                `;
+                uploadInfo.style.display = 'block';
+            } else {
+                uploadInfo.style.display = 'none';
+            }
+        }
+
+        // 테마 데이터 초기화
+        function clearThemeData() {
+            if (confirm('저장된 테마 데이터를 초기화하시겠습니까?')) {
+                localStorage.removeItem('themeData');
+                localStorage.removeItem('themeDataFileName');
+                themeDataCache = null;
+                currentThemeFileName = '';
+                loadThemeData();
+                updateUploadInfo();
+                showSuccess('테마 데이터가 초기화되었습니다.');
+            }
+        }
+
+        // 엑셀에서 테마 정보 가져오기
+        async function getThemeFromExcel(stockName, date) {
+            try {
+                const cleanStockName = stockName.replace(/^\d+\.\s*/, '').trim();
+                
+                if (themeDataCache && themeDataCache[cleanStockName]) {
+                    return themeDataCache[cleanStockName];
+                }
+                
+                return { main: '기타', sub: '기타' };
+                
+            } catch (error) {
+                console.error('테마 데이터 조회 실패:', error);
+                return { main: '데이터없음', sub: '데이터없음' };
+            }
+        }
+
+        // 설정 저장/불러오기
+        function loadBaseSettings() {
+            const savedBaseUrl = localStorage.getItem('stockBaseUrl');
+            const savedBaseId = localStorage.getItem('stockBaseId');
+            const savedBaseDate = localStorage.getItem('stockBaseDate');
+            
+            if (savedBaseUrl) baseUrl = savedBaseUrl;
+            if (savedBaseId) baseId = parseInt(savedBaseId);
+            if (savedBaseDate) baseDate = new Date(savedBaseDate);
+            
+            currentId = baseId;
+            
+            document.getElementById('baseUrlInput').value = baseUrl;
+            document.getElementById('baseIdInput').value = baseId;
+            document.getElementById('baseDateDisplay').textContent = formatDate(baseDate);
+        }
+
+        function saveBaseSettings() {
+            const newBaseUrl = document.getElementById('baseUrlInput').value;
+            const newBaseId = parseInt(document.getElementById('baseIdInput').value);
+            const newBaseDate = baseDate;
+            const newApiKey = document.getElementById('apiKeyInput').value;
+            
+            if (!newBaseUrl || !newBaseId || !newBaseDate) {
+                showError('필수 설정값을 입력해주세요.');
+                return;
+            }
+            
+            baseUrl = newBaseUrl;
+            baseId = newBaseId;
+            baseDate = newBaseDate;
+            currentId = baseId;
+            
+            // API 키 저장
+            if (newApiKey && newApiKey !== SERVICE_KEY) {
+                SERVICE_KEY = newApiKey;
+                localStorage.setItem('koreanApiServiceKey', SERVICE_KEY);
+                // 공휴일 캐시 초기화 (새 API 키로 다시 로드)
+                holidaysCache = {};
+            }
+            
+            localStorage.setItem('stockBaseUrl', baseUrl);
+            localStorage.setItem('stockBaseId', baseId.toString());
+            localStorage.setItem('stockBaseDate', baseDate.toISOString());
+            
+            updateUrlInput();
+            updateDateDisplay();
+            hideSettings();
+            showSuccess('설정이 저장되었습니다!');
+        }
+
+        // 설정 패널 토글
+        function toggleSettings() {
+            const settingsPanel = document.getElementById('settingsPanel');
+            if (settingsPanel.style.display === 'none') {
+                settingsPanel.style.display = 'block';
+                updateUploadInfo();
+            } else {
+                settingsPanel.style.display = 'none';
+            }
+        }
+
+        function hideSettings() {
+            document.getElementById('settingsPanel').style.display = 'none';
+        }
+
+        // 설정용 달력
+        function toggleSettingsCalendar(element) {
+            if (settingsCalendarVisible) {
+                hideSettingsCalendar();
+            } else {
+                showSettingsCalendar(element);
+            }
+        }
+
+        function showSettingsCalendar(element) {
+            const settingsCalendar = document.getElementById('settingsCalendar');
+            
+            const rect = element.getBoundingClientRect();
+            settingsCalendar.style.left = '0';
+            settingsCalendar.style.top = '100%';
+            
+            settingsCalendar.style.display = 'block';
+            settingsCalendarVisible = true;
+            renderSettingsCalendar();
+        }
+
+        function hideSettingsCalendar() {
+            const settingsCalendar = document.getElementById('settingsCalendar');
+            settingsCalendar.style.display = 'none';
+            settingsCalendarVisible = false;
+        }
+
+        async function renderSettingsCalendar() {
+            const settingsCalendar = document.getElementById('settingsCalendar');
+            const year = baseDate.getFullYear();
+            const month = baseDate.getMonth();
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const today = new Date();
+            
+            const yearHolidays = await loadHolidaysForYear(year);
+            
+            let html = `
+                <div class="calendar-header">
+                    <button class="calendar-nav" type="button" onclick="event.stopPropagation(); changeSettingsCalendarMonth(-1);">◀</button>
+                    <div class="calendar-title">${year}년 ${month + 1}월</div>
+                    <button class="calendar-nav" type="button" onclick="event.stopPropagation(); changeSettingsCalendarMonth(1);">▶</button>
+                </div>
+                <div class="calendar-grid">
+                    <div class="calendar-weekday">일</div>
+                    <div class="calendar-weekday">월</div>
+                    <div class="calendar-weekday">화</div>
+                    <div class="calendar-weekday">수</div>
+                    <div class="calendar-weekday">목</div>
+                    <div class="calendar-weekday">금</div>
+                    <div class="calendar-weekday">토</div>
+            `;
+            
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                html += `<div class="calendar-day disabled"></div>`;
+            }
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(year, month, day);
+                const dateString = formatDate(date);
+                const isToday = today.toDateString() === date.toDateString();
+                const isSelected = formatDate(baseDate) === dateString;
+                const dayOfWeek = date.getDay();
+                const isSaturday = dayOfWeek === 6;
+                const isSunday = dayOfWeek === 0;
+                const isHoliday = yearHolidays.includes(dateString);
+                const isTrading = await isTradingDay(date);
+                
+                let dayClass = 'calendar-day';
+                if (isToday) dayClass += ' today';
+                if (isSelected) dayClass += ' selected';
+                if (isSaturday) dayClass += ' saturday';
+                if (isSunday) dayClass += ' sunday';
+                if (isHoliday) dayClass += ' holiday';
+                if (!isTrading) dayClass += ' disabled';
+                
+                html += `<div class="${dayClass}" onclick="event.stopPropagation(); selectSettingsDate('${dateString}');" ${!isTrading ? 'style="cursor: not-allowed;"' : ''}>${day}</div>`;
+            }
+            
+            html += `</div>`;
+            settingsCalendar.innerHTML = html;
+        }
+
+        function changeSettingsCalendarMonth(direction) {
+            baseDate.setMonth(baseDate.getMonth() + direction);
+            renderSettingsCalendar();
+        }
+
+        function selectSettingsDate(dateString) {
+            baseDate = new Date(dateString.replace(/\./g, '-'));
+            document.getElementById('baseDateDisplay').textContent = formatDate(baseDate);
+            hideSettingsCalendar();
+        }
+
+        // URL 입력란 업데이트
+        function updateUrlInput() {
+            document.getElementById('urlInput').value = baseUrl + currentId;
+        }
+
+        // 메인 달력 함수들
+        function toggleCalendar(event) {
+            if (event) event.stopPropagation();
+            if (calendarVisible) {
+                hideCalendar();
+            } else {
+                showCalendar();
+            }
+        }
+
+        function showCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.style.display = 'block';
+            calendarVisible = true;
+            adjustCalendarPosition();
+            renderCalendar();
+        }
+
+        function hideCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.style.display = 'none';
+            calendarVisible = false;
+        }
+
+        async function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const today = new Date();
+            
+            const yearHolidays = await loadHolidaysForYear(year);
+            
+            let html = `
+                <div class="calendar-header">
+                    <button class="calendar-nav" type="button" onclick="event.stopPropagation(); changeCalendarMonth(-1);">◀</button>
+                    <div class="calendar-title">${year}년 ${month + 1}월</div>
+                    <button class="calendar-nav" type="button" onclick="event.stopPropagation(); changeCalendarMonth(1);">▶</button>
+                </div>
+                <div class="calendar-grid">
+                    <div class="calendar-weekday">일</div>
+                    <div class="calendar-weekday">월</div>
+                    <div class="calendar-weekday">화</div>
+                    <div class="calendar-weekday">수</div>
+                    <div class="calendar-weekday">목</div>
+                    <div class="calendar-weekday">금</div>
+                    <div class="calendar-weekday">토</div>
+            `;
+            
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                html += `<div class="calendar-day disabled"></div>`;
+            }
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(year, month, day);
+                const dateString = formatDate(date);
+                const isToday = today.toDateString() === date.toDateString();
+                const isSelected = currentRealDate === dateString;
+                const dayOfWeek = date.getDay();
+                const isSaturday = dayOfWeek === 6;
+                const isSunday = dayOfWeek === 0;
+                const isHoliday = yearHolidays.includes(dateString);
+                const isTrading = await isTradingDay(date);
+                
+                let dayClass = 'calendar-day';
+                if (isToday) dayClass += ' today';
+                if (isSelected) dayClass += ' selected';
+                if (isSaturday) dayClass += ' saturday';
+                if (isSunday) dayClass += ' sunday';
+                if (isHoliday) dayClass += ' holiday';
+                if (!isTrading) dayClass += ' disabled';
+                
+                html += `<div class="${dayClass}" onclick="event.stopPropagation(); selectDate('${dateString}');" ${!isTrading ? 'style="cursor: not-allowed;"' : ''}>${day}</div>`;
+            }
+            
+            html += `</div>`;
+            calendar.innerHTML = html;
+        }
+
+        function changeCalendarMonth(direction) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+            renderCalendar();
+        }
+
+        // 엑셀 데이터 파싱 함수
+        async function parseExcelData(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const data = [];
+            
+            const content = doc.body.textContent || doc.body.innerText || '';
+            
+            console.log('원본 데이터:', content.substring(0, 1000));
+            
+            let date = '';
+            const dateMatch = content.match(/(\d{4}년 \d{1,2}월 \d{1,2}일)/);
+            if (dateMatch) {
+                date = dateMatch[1].replace(/년 /g, '.').replace(/월 /g, '.').replace(/일/g, '');
+            } else {
+                date = await getDateStringFromId(currentId);
+            }
+            
+            const cleanedContent = content.replace(/출처\..*?https?:\/\/[^\s]+/g, '');
+            
+            const lines = cleanedContent.split('\n');
+            let foundItems = 0;
+            
+            for (let i = 0; i < lines.length && foundItems < 30; i++) {
+                const line = lines[i].trim();
+                
+                const numberPattern = /^(\d{1,2})\.\s+(.+)/;
+                const match = line.match(numberPattern);
+                
+                if (match && parseInt(match[1]) <= 30) {
+                    const number = parseInt(match[1]);
+                    const restOfLine = match[2].trim();
+                    
+                    const stockMatch = restOfLine.match(/^([^(]+?)\s*\(([^)]+)\)\s*:\s*(.+)/) || 
+                                      restOfLine.match(/^([^(]+?)\s*\(([^)]+)%\)\s*:\s*(.+)/) ||
+                                      restOfLine.match(/^([^:]+):\s*(.+)/);
+                    
+                    if (stockMatch) {
+                        let stockName, riseRate, reason;
+                        
+                        if (stockMatch.length === 4) {
+                            stockName = stockMatch[1].trim();
+                            riseRate = stockMatch[2].trim();
+                            reason = stockMatch[3].trim();
+                        } else if (stockMatch.length === 3) {
+                            stockName = stockMatch[1].trim();
+                            riseRate = '+0%';
+                            reason = stockMatch[2].trim();
+                        }
+                        
+                        if (!riseRate.includes('%')) {
+                            riseRate += '%';
+                        }
+                        if (!riseRate.startsWith('+') && !riseRate.startsWith('-')) {
+                            riseRate = '+' + riseRate;
+                        }
+                        
+                        const themeInfo = await getThemeFromExcel(stockName, date);
+                        
+                        data.push({
+                            date: date,
+                            themeMain: themeInfo.main,
+                            themeSub: themeInfo.sub,
+                            stockName: stockName,
+                            riseRate: riseRate,
+                            reason: reason
+                        });
+                        
+                        foundItems++;
+                    }
+                }
+            }
+            
+            data.sort((a, b) => {
+                const aNum = parseInt(a.stockName.match(/^(\d+)/)?.[1] || '0');
+                const bNum = parseInt(b.stockName.match(/^(\d+)/)?.[1] || '0');
+                return aNum - bNum;
+            });
+            
+            return {
+                date: date,
+                data: data
+            };
+        }
+
+        // 나머지 함수들
+        async function generateFallbackData() {
+            const data = [];
+            const date = await getDateStringFromId(currentId);
+            
+            for (let i = 1; i <= 30; i++) {
+                data.push({
+                    date: date,
+                    themeMain: '데이터',
+                    themeSub: '없음',
+                    stockName: `종목${i}`,
+                    riseRate: '+0.0%',
+                    reason: '데이터를 불러올 수 없습니다'
+                });
+            }
+            
+            return data;
+        }
+
+        function createTable(data) {
+            if (!data || data.length === 0) {
+                showError('표시할 데이터가 없습니다.');
+                return;
+            }
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>테마(대)</th>
+                            <th>테마(소)</th>
+                            <th>날짜</th>
+                            <th>종목명</th>
+                            <th>상승률</th>
+                            <th>상승이유</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><span class="theme-main">${item.themeMain}</span></td>
+                        <td><span class="theme-sub">${item.themeSub}</span></td>
+                        <td class="date">${item.date}</td>
+                        <td class="stock-name">${item.stockName}</td>
+                        <td class="rise-rate">${item.riseRate}</td>
+                        <td class="reason">${item.reason}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        // 엑셀 복사 함수
+        function copyToExcel() {
+            const table = document.querySelector('table');
+            if (!table) {
+                showError('복사할 테이블이 없습니다.');
+                return;
+            }
+            
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = [];
+                const cols = rows[i].querySelectorAll('td, th');
+                
+                for (let j = 0; j < cols.length; j++) {
+                    let text = cols[j].textContent.trim();
+                    
+                    const themeMain = cols[j].querySelector('.theme-main');
+                    const themeSub = cols[j].querySelector('.theme-sub');
+                    const stockName = cols[j].querySelector('.stock-name');
+                    const riseRate = cols[j].querySelector('.rise-rate');
+                    
+                    if (themeMain) {
+                        text = themeMain.textContent;
+                    } else if (themeSub) {
+                        text = themeSub.textContent;
+                    } else if (stockName) {
+                        text = stockName.textContent;
+                    } else if (riseRate) {
+                        text = riseRate.textContent;
+                    }
+                    
+                    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+                        text = text.replace(/"/g, '""');
+                        text = `"${text}"`;
+                    }
+                    row.push(text);
+                }
+                csv.push(row.join('\t'));
+            }
+            
+            const csvString = csv.join('\n');
+            
+            navigator.clipboard.writeText(csvString).then(() => {
+                showSuccess('데이터가 클립보드에 복사되었습니다! 엑셀에 붙여넣기 하세요.');
+            }).catch(err => {
+                const textArea = document.createElement('textarea');
+                textArea.value = csvString;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showSuccess('데이터가 클립보드에 복사되었습니다! 엑셀에 붙여넣기 하세요.');
+                } catch (e) {
+                    showError('복사에 실패했습니다: ' + e.message);
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            });
+        }
+
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.style.display = 'block';
+            
+            const success = document.getElementById('success');
+            success.style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            const success = document.getElementById('success');
+            success.textContent = message;
+            success.style.display = 'block';
+            
+            const error = document.getElementById('error');
+            error.style.display = 'none';
+            
+            setTimeout(() => {
+                success.style.display = 'none';
+            }, 3000);
+        }
+
+        function adjustCalendarPosition() {
+            const calendar = document.getElementById('calendar');
+            const dateControls = document.querySelector('.date-controls');
+            
+            const viewportHeight = window.innerHeight;
+            const calendarRect = calendar.getBoundingClientRect();
+            const dateControlsRect = dateControls.getBoundingClientRect();
+            
+            if (dateControlsRect.bottom + calendarRect.height > viewportHeight - 20) {
+                calendar.style.top = 'auto';
+                calendar.style.bottom = '100%';
+                calendar.style.marginTop = '0';
+                calendar.style.marginBottom = '5px';
+            } else {
+                calendar.style.top = '100%';
+                calendar.style.bottom = 'auto';
+                calendar.style.marginTop = '5px';
+                calendar.style.marginBottom = '0';
+            }
+        }
+
+        function updateButtonState(fetching) {
+            isFetching = fetching;
+            const fetchBtn = document.getElementById('fetchBtn');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (fetching) {
+                fetchBtn.innerHTML = '⏳ 불러오는 중...';
+                fetchBtn.disabled = true;
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+            } else {
+                fetchBtn.innerHTML = '🔄 데이터 가져오기';
+                fetchBtn.disabled = false;
+                prevBtn.disabled = false;
+                nextBtn.disabled = false;
+            }
+        }
+
+        window.addEventListener('resize', function() {
+            if (calendarVisible) {
+                adjustCalendarPosition();
+            }
+        });
+
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchData();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로또 조합 추천기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #222228;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #555;
+    --accent: #e8c84a;
+    --accent-dim: rgba(232,200,74,0.12);
+    --r1: #f5a623; --r1t: #3d2800;
+    --r2: #4a9eff; --r2t: #001833;
+    --r3: #ff6b4a; --r3t: #330f00;
+    --r4: #6abf69; --r4t: #0a2409;
+    --r5: #9e9e9e; --r5t: #1a1a1a;
+    --dup: #ff4d4d;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem;
+  }
+  .header-left h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .header-left p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .header-right { display: flex; gap: 8px; }
+
+  /* ── Layout ── */
+  .main {
+    display: flex; height: calc(100vh - 73px);
+    justify-content: center;
+  }
+  .left-panel {
+    width: 380px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .right-panel {
+    width: 360px; flex-shrink: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* ── Tabs (세트 선택) ── */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tab {
+    flex: 1; padding: 10px 4px; text-align: center;
+    font-size: 12px; font-weight: 500; color: var(--text3);
+    cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all 0.15s; position: relative;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab.done::after {
+    content: '✓'; position: absolute; top: 4px; right: 6px;
+    font-size: 9px; color: #6abf69;
+  }
+  .tab.has-dup::after {
+    content: '!'; position: absolute; top: 4px; right: 6px;
+    font-size: 10px; color: var(--dup); font-weight: 700;
+  }
+
+  /* ── Number grid ── */
+  .grid-section { flex: 1; overflow-y: auto; padding: 14px; }
+  .grid-info {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .grid-info-label { font-size: 12px; color: var(--text2); }
+  .grid-count { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .grid-count span { color: var(--accent); font-weight: 500; }
+
+  .num-grid { display: flex; flex-direction: column; gap: 4px; }
+  .num-row { display: flex; align-items: center; gap: 4px; }
+  .row-label {
+    font-size: 10px; color: var(--text3); min-width: 28px;
+    font-family: 'DM Mono', monospace; text-align: right; padding-right: 4px;
+    flex-shrink: 0; line-height: 1;
+  }
+  .nb {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text3);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.12s; user-select: none;
+    font-family: 'DM Mono', monospace;
+  }
+  .nb:hover { border-color: var(--border2); color: var(--text2); }
+  .nb.sel { color: #111; border-color: transparent; font-weight: 700; }
+  .nb.sel.r1 { background: var(--r1); }
+  .nb.sel.r2 { background: var(--r2); }
+  .nb.sel.r3 { background: var(--r3); }
+  .nb.sel.r4 { background: var(--r4); }
+  .nb.sel.r5 { background: var(--r5); }
+  .nb.dup-ring { box-shadow: 0 0 0 2px var(--dup); }
+  .nb.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+  /* ── Selected balls preview (하단) ── */
+  .balls-preview {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    min-height: 62px;
+  }
+  .balls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ball {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  .ball.r1 { background: var(--r1); color: var(--r1t); }
+  .ball.r2 { background: var(--r2); color: var(--r2t); }
+  .ball.r3 { background: var(--r3); color: var(--r3t); }
+  .ball.r4 { background: var(--r4); color: var(--r4t); }
+  .ball.r5 { background: var(--r5); color: var(--r5t); }
+  .ball.dup-ball { outline: 2px solid var(--dup); outline-offset: 1px; }
+  .ball-empty { font-size: 12px; color: var(--text3); }
+  .clear-set-btn {
+    margin-left: auto; font-size: 11px; color: var(--text3);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.12s;
+  }
+  .clear-set-btn:hover { color: var(--text2); border-color: var(--border2); }
+
+  /* ── Right panel: sets overview + results ── */
+  .sets-bar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .sets-bar-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .sets-overview { display: flex; flex-direction: column; gap: 6px; }
+  .set-overview-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .set-overview-label { font-size: 11px; color: var(--text3); min-width: 36px; font-family: 'DM Mono', monospace; }
+  .set-overview-balls { display: flex; gap: 4px; flex: 1; }
+  .sm-ball {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+  .sm-ball.r1 { background: var(--r1); color: var(--r1t); }
+  .sm-ball.r2 { background: var(--r2); color: var(--r2t); }
+  .sm-ball.r3 { background: var(--r3); color: var(--r3t); }
+  .sm-ball.r4 { background: var(--r4); color: var(--r4t); }
+  .sm-ball.r5 { background: var(--r5); color: var(--r5t); }
+  .sm-ball.dup-ball { outline: 2px solid var(--dup); outline-offset: 1px; }
+  .sm-ball.empty-slot {
+    background: var(--surface2); border: 1px dashed var(--border2);
+  }
+  .set-overview-status { font-size: 11px; color: var(--text3); min-width: 28px; text-align: right; font-family: 'DM Mono', monospace; }
+  .set-overview-status.done { color: #6abf69; }
+
+  /* ── Summary badge ── */
+  .summary-row {
+    display: flex; gap: 8px; align-items: center;
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .summary-text { font-size: 12px; color: var(--text2); }
+  .badge {
+    font-size: 11px; padding: 2px 10px; border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge.uniq { background: rgba(106,191,105,0.15); color: #6abf69; }
+  .badge.dup  { background: rgba(255,77,77,0.12); color: var(--dup); }
+
+  /* ── Controls ── */
+  .ctrl-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+  }
+  .ctrl-label { font-size: 12px; color: var(--text2); }
+  select {
+    font-size: 12px; padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text);
+    cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
+  }
+  .btn {
+    font-size: 12px; padding: 6px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text2);
+    cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.12s;
+  }
+  .btn:hover { background: var(--surface); color: var(--text); }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent);
+    color: #111; font-weight: 700;
+  }
+  .btn.primary:hover { background: #f5d96a; }
+  .btn.reset { margin-left: auto; }
+
+  /* ── Results ── */
+  .results-scroll { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .results-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text3); font-size: 13px; text-align: center;
+    flex-direction: column; gap: 8px;
+  }
+  .results-empty .icon { font-size: 32px; opacity: 0.3; }
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 8px;
+    animation: slideIn 0.2s ease both;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .r-idx { font-size: 12px; color: var(--text3); min-width: 24px; font-family: 'DM Mono', monospace; }
+  .r-balls { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+  .r-ball {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+  .r-ball.r1 { background: var(--r1); color: var(--r1t); }
+  .r-ball.r2 { background: var(--r2); color: var(--r2t); }
+  .r-ball.r3 { background: var(--r3); color: var(--r3t); }
+  .r-ball.r4 { background: var(--r4); color: var(--r4t); }
+  .r-ball.r5 { background: var(--r5); color: var(--r5t); }
+
+  .warn-bar {
+    font-size: 12px; color: var(--dup);
+    background: rgba(255,77,77,0.08);
+    border: 1px solid rgba(255,77,77,0.2);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px; margin: 0 20px 10px;
+    display: none;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>로또 조합 추천기</h1>
+    <p>5세트 자동번호에서 6개씩 선택 → 중복 제거 후 고유 조합 추천 · 순수 랜덤</p>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 왼쪽: 번호판 -->
+  <div class="left-panel">
+    <div class="tabs" id="tabs"></div>
+    <div class="grid-section">
+      <div class="grid-info">
+        <span class="grid-info-label" id="gridLabel">1세트 번호 선택</span>
+        <span class="grid-count"><span id="gridCount">0</span> / 6</span>
+      </div>
+      <div class="num-grid" id="numGrid"></div>
+    </div>
+    <div class="balls-preview">
+      <div class="balls-row" id="ballsRow">
+        <span class="ball-empty">선택한 번호가 여기에 표시됩니다</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 세트 현황 + 조합 결과 -->
+  <div class="right-panel">
+    <div class="sets-bar">
+      <div class="sets-bar-title">세트 현황</div>
+      <div class="sets-overview" id="setsOverview"></div>
+    </div>
+    <div class="summary-row" id="summaryRow">
+      <span class="summary-text">번호를 선택해주세요</span>
+    </div>
+    <div class="ctrl-bar">
+      <span class="ctrl-label">추천 조합 수</span>
+      <select id="countSel">
+        <option value="3">3개</option>
+        <option value="5" selected>5개</option>
+        <option value="7">7개</option>
+        <option value="10">10개</option>
+      </select>
+      <button class="btn primary" onclick="generate()">조합 추천 →</button>
+      <button class="btn reset" onclick="resetAll()">전체 초기화</button>
+    </div>
+    <div class="warn-bar" id="warnBar"></div>
+    <div class="results-scroll" id="resultsScroll">
+      <div class="results-empty">
+        <div class="icon">🎱</div>
+        <div>5세트 번호를 모두 선택한 뒤<br>조합 추천 버튼을 눌러주세요</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SETS = 5;
+const MAX = 6;
+let currentSet = 0;
+const setData = Array.from({length: SETS}, () => new Set());
+
+function rClass(n) {
+  if (n <= 10) return 'r1';
+  if (n <= 20) return 'r2';
+  if (n <= 30) return 'r3';
+  if (n <= 40) return 'r4';
+  return 'r5';
+}
+
+function getDups() {
+  const count = {};
+  setData.forEach(s => s.forEach(n => { count[n] = (count[n]||0)+1; }));
+  return new Set(Object.entries(count).filter(([,c])=>c>1).map(([n])=>+n));
+}
+
+// ── Build UI ──
+function buildTabs() {
+  const tabs = document.getElementById('tabs');
+  for (let s = 0; s < SETS; s++) {
+    const t = document.createElement('div');
+    t.className = 'tab' + (s === 0 ? ' active' : '');
+    t.textContent = `${s+1}세트`;
+    t.id = `tab-${s}`;
+    t.onclick = () => switchSet(s);
+    tabs.appendChild(t);
+  }
+}
+
+function buildGrid() {
+  const grid = document.getElementById('numGrid');
+  // rows: 1~10, 11~20, 21~30, 31~40, 41~45
+  const rows = [[1,10],[11,20],[21,30],[31,40],[41,45]];
+  rows.forEach(([from, to]) => {
+    const row = document.createElement('div');
+    row.className = 'num-row';
+    const label = document.createElement('div');
+    label.className = 'row-label';
+    label.textContent = `${from}~`;
+    row.appendChild(label);
+    for (let n = from; n <= to; n++) {
+      const btn = document.createElement('div');
+      btn.className = 'nb';
+      btn.textContent = n;
+      btn.id = `nb-${n}`;
+      btn.onclick = () => toggle(currentSet, n);
+      row.appendChild(btn);
+    }
+    grid.appendChild(row);
+  });
+}
+
+function buildOverview() {
+  const ov = document.getElementById('setsOverview');
+  for (let s = 0; s < SETS; s++) {
+    const row = document.createElement('div');
+    row.className = 'set-overview-row';
+    row.id = `ov-${s}`;
+    ov.appendChild(row);
+  }
+}
+
+// ── Logic ──
+function toggle(s, n) {
+  const sel = setData[s];
+  if (sel.has(n)) {
+    sel.delete(n);
+  } else {
+    if (sel.size >= MAX) return;
+    sel.add(n);
+  }
+  // 6개 채워지면 다음 세트로 자동 이동
+  if (sel.size === MAX) {
+    const next = s + 1;
+    if (next < SETS) {
+      setTimeout(() => switchSet(next), 180);
+    }
+  }
+  refresh();
+}
+
+function switchSet(s) {
+  currentSet = s;
+  for (let i = 0; i < SETS; i++) {
+    document.getElementById(`tab-${i}`).classList.toggle('active', i === s);
+  }
+  document.getElementById('gridLabel').textContent = `${s+1}세트 번호 선택`;
+  refresh();
+}
+
+function refresh() {
+  const dups = getDups();
+  const sel = setData[currentSet];
+
+  // grid
+  for (let n = 1; n <= 45; n++) {
+    const btn = document.getElementById(`nb-${n}`);
+    const isSel = sel.has(n);
+    const isDup = dups.has(n) && isSel;
+    btn.className = 'nb'
+      + (isSel ? ` sel ${rClass(n)}` : '')
+      + (isDup ? ' dup-ring' : '')
+      + (!isSel && sel.size >= MAX ? ' disabled' : '');
+  }
+
+  // count
+  document.getElementById('gridCount').textContent = sel.size;
+
+  // balls preview
+  const ballsRow = document.getElementById('ballsRow');
+  const sorted = [...sel].sort((a,b)=>a-b);
+  if (sorted.length === 0) {
+    ballsRow.innerHTML = '<span class="ball-empty">선택한 번호가 여기에 표시됩니다</span>';
+  } else {
+    ballsRow.innerHTML = sorted.map(n =>
+      `<div class="ball ${rClass(n)}${dups.has(n) ? ' dup-ball' : ''}">${n}</div>`
+    ).join('') + `<button class="clear-set-btn" onclick="clearSet(${currentSet})">초기화</button>`;
+  }
+
+  // tabs
+  for (let s = 0; s < SETS; s++) {
+    const tab = document.getElementById(`tab-${s}`);
+    const sd = setData[s];
+    const hasDup = [...sd].some(n => dups.has(n));
+    tab.className = 'tab'
+      + (s === currentSet ? ' active' : '')
+      + (sd.size === MAX && !hasDup ? ' done' : '')
+      + (hasDup ? ' has-dup' : '');
+    tab.textContent = `${s+1}세트`;
+  }
+
+  // overview
+  for (let s = 0; s < SETS; s++) {
+    const row = document.getElementById(`ov-${s}`);
+    const sd = setData[s];
+    const sortedS = [...sd].sort((a,b)=>a-b);
+    const slots = Array.from({length: MAX}, (_, i) => sortedS[i] ?? null);
+    row.innerHTML =
+      `<span class="set-overview-label">${s+1}세트</span>` +
+      `<div class="set-overview-balls">` +
+      slots.map(n => n === null
+        ? `<div class="sm-ball empty-slot"></div>`
+        : `<div class="sm-ball ${rClass(n)}${dups.has(n) ? ' dup-ball' : ''}">${n}</div>`
+      ).join('') +
+      `</div>` +
+      `<span class="set-overview-status${sd.size===MAX ? ' done' : ''}">${sd.size}/6</span>`;
+  }
+
+  // summary
+  const all = [];
+  setData.forEach(s => s.forEach(n => all.push(n)));
+  const unique = [...new Set(all)];
+  const dupList = [...dups].sort((a,b)=>a-b);
+  const summaryRow = document.getElementById('summaryRow');
+  if (all.length === 0) {
+    summaryRow.innerHTML = '<span class="summary-text">번호를 선택해주세요</span>';
+  } else {
+    summaryRow.innerHTML =
+      `<span class="summary-text">전체 <b>${all.length}개</b></span>` +
+      `<span class="badge uniq">고유 ${unique.length}개</span>` +
+      (dupList.length > 0 ? `<span class="badge dup">중복 ${dupList.length}개: ${dupList.join(', ')}</span>` : '');
+  }
+}
+
+function clearSet(s) {
+  setData[s].clear();
+  refresh();
+}
+
+function resetAll() {
+  setData.forEach(s => s.clear());
+  currentSet = 0;
+  switchSet(0);
+  document.getElementById('warnBar').style.display = 'none';
+  document.getElementById('resultsScroll').innerHTML =
+    `<div class="results-empty"><div class="icon">🎱</div><div>5세트 번호를 모두 선택한 뒤<br>조합 추천 버튼을 눌러주세요</div></div>`;
+  refresh();
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function generate() {
+  const all = [];
+  setData.forEach(s => s.forEach(n => all.push(n)));
+  const pool = [...new Set(all)];
+  const warn = document.getElementById('warnBar');
+
+  if (pool.length < 6) {
+    warn.textContent = `고유 번호가 ${pool.length}개뿐이에요. 최소 6개 이상 필요해요.`;
+    warn.style.display = 'block';
+    return;
+  }
+  warn.style.display = 'none';
+
+  const count = +document.getElementById('countSel').value;
+  const combos = [];
+  const seen = new Set();
+  let tries = 0;
+  while (combos.length < count && tries < 30000) {
+    tries++;
+    const pick = shuffle(pool).slice(0, 6).sort((a,b)=>a-b);
+    const key = pick.join('-');
+    if (!seen.has(key)) { seen.add(key); combos.push(pick); }
+  }
+
+  const scroll = document.getElementById('resultsScroll');
+  scroll.innerHTML = '';
+  combos.forEach((combo, idx) => {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.style.animationDelay = (idx * 0.06) + 's';
+    card.innerHTML =
+      `<span class="r-idx">${idx+1}</span>` +
+      `<div class="r-balls">${combo.map(n=>`<div class="r-ball ${rClass(n)}">${n}</div>`).join('')}</div>`;
+    scroll.appendChild(card);
+  });
+}
+
+buildTabs();
+buildGrid();
+buildOverview();
+refresh();
+</script>
+</body>
+</html>

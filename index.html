@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>로또 조합 추천기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f11;--surface:#1a1a1f;--surface2:#222228;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);
+  --text:#f0f0f0;--text2:#888;--text3:#4a4a52;
+  --accent:#e8c84a;
+  --r1:#f5a623;--r1t:#3d2800;
+  --r2:#4a9eff;--r2t:#001833;
+  --r3:#ff6b4a;--r3t:#330f00;
+  --r4:#6abf69;--r4t:#0a2409;
+  --r5:#9e9e9e;--r5t:#1a1a1a;
+  --dup:#ff4d4d;
+  --hit:#e8c84a;--bonus:#c084fc;
+  --rad:12px;--rad-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100%;}
+
+/* ══════════════════════════════
+   MOBILE-FIRST: single column scroll
+══════════════════════════════ */
+.app{display:flex;flex-direction:column;min-height:100%;}
+
+/* ── Sticky header ── */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:var(--bg);
+  padding:0.9rem 1rem 0.8rem;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.header-title h1{font-size:17px;font-weight:700;color:var(--accent);letter-spacing:-0.3px;}
+.header-title p{font-size:11px;color:var(--text2);margin-top:2px;}
+.header-reset{font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;}
+
+/* ── Section wrapper ── */
+.section{padding:14px 14px 0;}
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.section-hd h2{font-size:13px;font-weight:700;color:var(--text);}
+.section-hd .meta{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;}
+.section-hd .meta span{color:var(--accent);font-weight:500;}
+
+/* ── Set tabs ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);border-radius:10px 10px 0 0;overflow:hidden;}
+.tab{
+  flex:1;padding:11px 4px;text-align:center;
+  font-size:13px;font-weight:500;color:var(--text3);
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all 0.15s;position:relative;user-select:none;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab.done::after{content:'✓';position:absolute;top:5px;right:5px;font-size:9px;color:#6abf69;}
+.tab.has-dup::after{content:'!';position:absolute;top:4px;right:5px;font-size:10px;color:var(--dup);font-weight:700;}
+
+/* ── Number grid ── */
+.grid-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-top:none;
+  border-radius:0 0 10px 10px;
+  padding:12px 10px 14px;
+}
+.num-grid{display:flex;flex-direction:column;gap:6px;}
+.num-row{display:flex;align-items:center;gap:0;}
+.row-label{
+  font-size:10px;color:var(--text3);
+  width:28px;flex-shrink:0;
+  font-family:'DM Mono',monospace;text-align:right;padding-right:6px;
+}
+.nb{
+  flex:1;aspect-ratio:1;max-width:52px;
+  border-radius:50%;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text3);font-size:14px;font-weight:500;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background 0.1s,border-color 0.1s,color 0.1s;
+  user-select:none;font-family:'DM Mono',monospace;
+  margin:0 2px;
+}
+.nb:active{transform:scale(0.92);}
+.nb.sel{color:#111;border-color:transparent;font-weight:700;}
+.nb.sel.r1{background:var(--r1);}
+.nb.sel.r2{background:var(--r2);}
+.nb.sel.r3{background:var(--r3);}
+.nb.sel.r4{background:var(--r4);}
+.nb.sel.r5{background:var(--r5);}
+.nb.dup-ring{box-shadow:0 0 0 2px var(--dup);}
+.nb.disabled{opacity:0.2;pointer-events:none;}
+
+/* ── Selected balls strip ── */
+.balls-strip{
+  display:flex;gap:6px;align-items:center;flex-wrap:nowrap;
+  padding:10px 14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin:10px 14px 0;
+  min-height:54px;
+  overflow-x:auto;
+}
+.ball{
+  width:36px;height:36px;flex-shrink:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;font-family:'DM Mono',monospace;
+}
+.ball.r1{background:var(--r1);color:var(--r1t);}
+.ball.r2{background:var(--r2);color:var(--r2t);}
+.ball.r3{background:var(--r3);color:var(--r3t);}
+.ball.r4{background:var(--r4);color:var(--r4t);}
+.ball.r5{background:var(--r5);color:var(--r5t);}
+.ball.dup-ball{outline:2px solid var(--dup);outline-offset:1px;}
+.ball-empty{font-size:12px;color:var(--text3);}
+.strip-clear{margin-left:auto;flex-shrink:0;font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+
+/* ── Overview ── */
+.overview-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;
+}
+.set-ov-row{display:flex;align-items:center;gap:8px;padding:4px 0;}
+.set-ov-row+.set-ov-row{border-top:1px solid var(--border);}
+.set-ov-label{font-size:12px;color:var(--text3);min-width:38px;font-family:'DM Mono',monospace;}
+.set-ov-balls{display:flex;gap:4px;flex:1;flex-wrap:wrap;}
+.sm-ball{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'DM Mono',monospace;}
+.sm-ball.r1{background:var(--r1);color:var(--r1t);}
+.sm-ball.r2{background:var(--r2);color:var(--r2t);}
+.sm-ball.r3{background:var(--r3);color:var(--r3t);}
+.sm-ball.r4{background:var(--r4);color:var(--r4t);}
+.sm-ball.r5{background:var(--r5);color:var(--r5t);}
+.sm-ball.dup-ball{outline:2px solid var(--dup);outline-offset:1px;}
+.sm-ball.empty-slot{background:var(--surface2);border:1px dashed var(--border2);}
+.set-ov-status{font-size:11px;color:var(--text3);min-width:28px;text-align:right;font-family:'DM Mono',monospace;}
+.set-ov-status.done{color:#6abf69;}
+
+/* ── Summary badges ── */
+.summary-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0 0;}
+.summary-text{font-size:12px;color:var(--text2);}
+.badge{font-size:11px;padding:2px 9px;border-radius:20px;font-family:'DM Mono',monospace;}
+.badge.uniq{background:rgba(106,191,105,0.15);color:#6abf69;}
+.badge.dup{background:rgba(255,77,77,0.12);color:var(--dup);}
+
+/* ── Generate button ── */
+.gen-area{padding:12px 14px;}
+.gen-row{display:flex;gap:8px;align-items:center;}
+select{font-size:13px;padding:9px 10px;border-radius:var(--rad-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'Noto Sans KR',sans-serif;}
+.btn{font-size:13px;padding:9px 16px;border-radius:var(--rad-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.12s;white-space:nowrap;}
+.btn.primary{flex:1;background:var(--accent);border-color:var(--accent);color:#111;font-weight:700;text-align:center;}
+.btn.primary:active{background:#f5d96a;}
+.warn-bar{display:none;font-size:12px;color:var(--dup);background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.2);border-radius:var(--rad-sm);padding:8px 12px;margin-top:8px;}
+
+/* ── Winning number section ── */
+.win-grid-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 10px 14px;
+}
+.wnb{
+  flex:1;aspect-ratio:1;max-width:52px;
+  border-radius:50%;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text3);font-size:14px;font-weight:500;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background 0.1s,border-color 0.1s,color 0.1s;
+  user-select:none;font-family:'DM Mono',monospace;
+  margin:0 2px;
+}
+.wnb:active{transform:scale(0.92);}
+.wnb.win-sel{color:#111;border-color:transparent;font-weight:700;}
+.wnb.win-sel.r1{background:var(--r1);}
+.wnb.win-sel.r2{background:var(--r2);}
+.wnb.win-sel.r3{background:var(--r3);}
+.wnb.win-sel.r4{background:var(--r4);}
+.wnb.win-sel.r5{background:var(--r5);}
+.wnb.bonus-sel{background:var(--bonus);color:#fff;border-color:transparent;font-weight:700;}
+
+.win-preview{
+  display:flex;gap:6px;align-items:center;
+  padding:10px 14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin-top:10px;
+  min-height:54px;
+  flex-wrap:wrap;
+}
+.wball{
+  width:36px;height:36px;flex-shrink:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;font-family:'DM Mono',monospace;
+}
+.wball.r1{background:var(--r1);color:var(--r1t);}
+.wball.r2{background:var(--r2);color:var(--r2t);}
+.wball.r3{background:var(--r3);color:var(--r3t);}
+.wball.r4{background:var(--r4);color:var(--r4t);}
+.wball.r5{background:var(--r5);color:var(--r5t);}
+.wball.is-bonus{background:var(--bonus);color:#fff;}
+.win-empty{font-size:12px;color:var(--text3);}
+.win-sep{font-size:13px;color:var(--text3);flex-shrink:0;}
+
+/* ── Results ── */
+.results-area{padding:0 14px 32px;}
+.results-empty{padding:24px 0;text-align:center;color:var(--text3);font-size:13px;}
+.results-empty .icon{font-size:28px;opacity:0.25;display:block;margin-bottom:6px;}
+
+.result-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--rad);padding:12px 14px;
+  margin-bottom:8px;
+  animation:fadeUp 0.2s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.rc-top{display:flex;align-items:center;gap:10px;}
+.rc-idx{font-size:12px;color:var(--text3);min-width:20px;font-family:'DM Mono',monospace;flex-shrink:0;}
+.rc-balls{display:flex;gap:5px;flex-wrap:wrap;flex:1;}
+.r-ball{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;
+}
+.r-ball.r1{background:var(--r1);color:var(--r1t);}
+.r-ball.r2{background:var(--r2);color:var(--r2t);}
+.r-ball.r3{background:var(--r3);color:var(--r3t);}
+.r-ball.r4{background:var(--r4);color:var(--r4t);}
+.r-ball.r5{background:var(--r5);color:var(--r5t);}
+.r-ball.dimmed{opacity:0.2;}
+.r-ball.hit-ring{box-shadow:0 0 0 2.5px var(--hit),0 0 6px rgba(232,200,74,0.3);}
+.r-ball.bonus-ring{box-shadow:0 0 0 2.5px var(--bonus),0 0 6px rgba(192,132,252,0.3);}
+
+.rank-badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
+.rank-1{background:rgba(232,200,74,0.2);color:#e8c84a;border:1px solid rgba(232,200,74,0.4);}
+.rank-2{background:rgba(192,132,252,0.18);color:#c084fc;border:1px solid rgba(192,132,252,0.35);}
+.rank-3{background:rgba(74,159,255,0.15);color:#4a9eff;border:1px solid rgba(74,159,255,0.3);}
+.rank-4{background:rgba(106,191,105,0.15);color:#6abf69;border:1px solid rgba(106,191,105,0.3);}
+.rank-5{background:rgba(255,107,74,0.12);color:#ff6b4a;border:1px solid rgba(255,107,74,0.25);}
+.rank-none{background:rgba(74,74,82,0.3);color:var(--text3);border:1px solid var(--border);}
+
+.rc-compare{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.match-hit{font-size:11px;color:var(--hit);}
+.match-bonus{font-size:11px;color:var(--bonus);}
+.match-none{font-size:11px;color:var(--text3);}
+.dots{display:flex;gap:3px;margin-left:auto;}
+.dot{width:8px;height:8px;border-radius:50%;}
+.dot.filled{background:var(--hit);}
+.dot.bonus{background:var(--bonus);}
+.dot.empty{background:var(--surface2);border:1px solid var(--border2);}
+
+/* ── Win header in results ── */
+.win-header{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 14px;margin-bottom:8px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  flex-wrap:wrap;
+}
+.win-header-lbl{font-size:11px;color:var(--text3);flex-shrink:0;margin-right:2px;}
+
+/* ── Dividers between big sections ── */
+.section-gap{height:14px;}
+
+/* ══════════════════════════════
+   DESKTOP ≥ 768px  — side by side
+══════════════════════════════ */
+@media(min-width:768px){
+  body{overflow:hidden;height:100%;}
+  .app{height:100%;flex-direction:column;}
+  .header{position:static;padding:1rem 2rem 0.9rem;}
+  .header-title h1{font-size:19px;}
+
+  .desktop-body{
+    flex:1;display:flex;justify-content:center;
+    overflow:hidden;min-height:0;
+  }
+  .mobile-only{display:none!important;}
+
+  /* Left panel */
+  .desktop-left{
+    width:400px;flex-shrink:0;
+    border-right:1px solid var(--border);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  .desktop-left-scroll{flex:1;overflow-y:auto;padding:14px;}
+
+  /* Right panel */
+  .desktop-right{
+    width:420px;flex-shrink:0;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  .desktop-right-scroll{flex:1;overflow-y:auto;padding:14px;}
+
+  /* Desktop tabs */
+  .tabs{border-radius:8px 8px 0 0;}
+  .tab{font-size:12px;padding:9px 2px;}
+
+  /* Desktop grid — slightly smaller balls */
+  .nb,.wnb{font-size:12px;}
+
+  /* Desktop sections — no extra padding  */
+  .section{padding:0;}
+  .section+.section{margin-top:14px;}
+  .balls-strip{margin:8px 0 0;}
+  .gen-area{padding:10px 0 0;}
+  .win-preview{margin-top:8px;}
+  .results-area{padding:0;}
+  .section-gap{height:10px;}
+}
+/* hide desktop layout on mobile */
+.desktop-body,.desktop-left,.desktop-right{display:none;}
+@media(min-width:768px){
+  .desktop-body{display:flex;}
+  .desktop-left,.desktop-right{display:flex;}
+  /* hide mobile scroll content — it's rebuilt in desktop panels */
+  .mobile-scroll{display:none;}
+}
+
+/* ══ CAMERA OCR MODAL ══ */
+.ocr-overlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.93);flex-direction:column;align-items:center;overflow-y:auto;}
+.ocr-overlay.open{display:flex;}
+.ocr-modal{width:100%;max-width:500px;padding:20px 16px 40px;display:flex;flex-direction:column;gap:14px;}
+.ocr-header{display:flex;align-items:center;justify-content:space-between;}
+.ocr-title{font-size:16px;font-weight:700;color:var(--accent);}
+.ocr-close{font-size:24px;color:var(--text3);background:none;border:none;cursor:pointer;line-height:1;padding:4px 8px;}
+.ocr-sub{font-size:12px;color:var(--text2);line-height:1.6;text-align:center;}
+.ocr-dropzone{
+  width:100%;border-radius:12px;border:2px dashed var(--border2);
+  background:var(--surface2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:32px 16px;cursor:pointer;transition:border-color 0.15s,background 0.15s;
+  min-height:160px;
+}
+.ocr-dropzone:hover,.ocr-dropzone.drag-over{border-color:var(--accent);background:rgba(232,200,74,0.06);}
+.ocr-dropzone-icon{font-size:36px;line-height:1;}
+.ocr-dropzone-txt{font-size:14px;color:var(--text2);text-align:center;line-height:1.5;}
+.ocr-dropzone-sub{font-size:11px;color:var(--text3);text-align:center;}
+.ocr-preview-img{width:100%;border-radius:10px;display:block;border:1px solid var(--border2);}
+.ocr-preview-wrap{display:none;border-radius:10px;overflow:hidden;border:1px solid var(--border2);}
+.ocr-preview-wrap.show{display:block;}
+#ocrCanvas{width:100%;display:block;}
+.ocr-status{font-size:12px;color:var(--text2);text-align:center;min-height:20px;font-family:'DM Mono',monospace;}
+.ocr-status.scanning{color:var(--accent);}
+.ocr-status.ok{color:#6abf69;}
+.ocr-status.err{color:var(--dup);}
+.ocr-edit-area{display:none;flex-direction:column;gap:10px;}
+.ocr-edit-area.show{display:flex;}
+.ocr-edit-label{font-size:12px;color:var(--text2);}
+.ocr-set-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:11px 12px;}
+.ocr-set-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.ocr-set-name{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:500;}
+.ocr-set-cnt{font-size:11px;font-family:'DM Mono',monospace;}
+.ocr-set-cnt.ok{color:#6abf69;}
+.ocr-set-cnt.bad{color:var(--dup);}
+.ocr-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.chip{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-weight:700;font-size:13px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text2);position:relative;flex-shrink:0;transition:all 0.1s;}
+.chip.r1{background:var(--r1);color:var(--r1t);border-color:transparent;}
+.chip.r2{background:var(--r2);color:var(--r2t);border-color:transparent;}
+.chip.r3{background:var(--r3);color:var(--r3t);border-color:transparent;}
+.chip.r4{background:var(--r4);color:var(--r4t);border-color:transparent;}
+.chip.r5{background:var(--r5);color:var(--r5t);border-color:transparent;}
+.chip.bad{border-color:var(--dup);color:var(--dup);background:rgba(255,77,77,0.1);}
+.chip input{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;outline:none;text-align:center;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:inherit;border-radius:50%;cursor:text;}
+.chip-del{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--dup);color:#fff;font-size:9px;line-height:16px;text-align:center;cursor:pointer;display:none;}
+.chip:hover .chip-del,.chip:focus-within .chip-del{display:block;}
+.chip-add{width:40px;height:40px;border-radius:50%;border:1.5px dashed var(--border2);background:none;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;}
+.ocr-btn-row{display:flex;gap:8px;}
+.ocr-btn{flex:1;padding:12px 8px;border-radius:var(--rad-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans KR',sans-serif;text-align:center;transition:all 0.12s;}
+.ocr-btn.primary{background:var(--accent);border-color:var(--accent);color:#111;font-weight:700;}
+.ocr-btn.ghost{color:var(--text3);}
+.cam-btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:6px 11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── Sticky header ── -->
+<div class="header">
+  <div class="header-title">
+    <h1>로또 조합 추천기</h1>
+    <p>5세트 입력 → 조합 추천 → 당첨번호 비교</p>
+  </div>
+  <button class="header-reset" onclick="resetAll()">전체 초기화</button>
+</div>
+
+<!-- ══════════ MOBILE scroll layout ══════════ -->
+<div class="mobile-scroll">
+
+  <!-- 1. 번호 선택 -->
+  <div class="section" style="padding-top:14px;">
+    <div class="section-hd">
+      <h2>번호 선택</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="meta"><span id="m-gridCount">0</span> / 6 선택</div>
+        <button class="cam-btn" onclick="openOCR()">🖼️ 스크린샷으로 입력</button>
+      </div>
+    </div>
+    <div class="tabs" id="m-tabs"></div>
+    <div class="grid-card">
+      <div class="num-grid" id="m-numGrid"></div>
+    </div>
+  </div>
+
+  <!-- selected balls -->
+  <div class="balls-strip" id="m-ballsStrip">
+    <span class="ball-empty">번호를 선택하면 여기에 표시됩니다</span>
+  </div>
+
+  <!-- 2. 세트 현황 -->
+  <div class="section" style="padding-top:14px;">
+    <div class="section-hd"><h2>세트 현황</h2></div>
+    <div class="overview-card">
+      <div id="m-overview"></div>
+    </div>
+    <div class="summary-row" id="m-summary" style="padding:8px 0 0;"></div>
+  </div>
+
+  <!-- 3. 조합 추천 -->
+  <div class="section" style="padding-top:14px;">
+    <div class="section-hd"><h2>조합 추천</h2></div>
+    <div class="gen-area" style="padding:0;">
+      <div class="gen-row">
+        <select id="m-countSel">
+          <option value="3">3개</option>
+          <option value="5" selected>5개</option>
+          <option value="7">7개</option>
+          <option value="10">10개</option>
+        </select>
+        <button class="btn primary" onclick="generate()">조합 추천 →</button>
+      </div>
+      <div class="warn-bar" id="m-warn"></div>
+    </div>
+  </div>
+
+  <!-- 4. 당첨번호 입력 -->
+  <div class="section" style="padding-top:14px;">
+    <div class="section-hd">
+      <h2>당첨번호 입력</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="meta" style="font-size:11px;"><span id="m-winCount">0</span>/6 · 보너스 <span id="m-bonusCount">0</span>/1</span>
+        <button class="header-reset" onclick="clearWin()" style="font-size:11px;padding:4px 8px;">초기화</button>
+      </div>
+    </div>
+    <div class="win-grid-card">
+      <div class="num-grid" id="m-winGrid"></div>
+    </div>
+    <div class="win-preview" id="m-winPreview">
+      <span class="win-empty">당첨번호 6개 + 보너스 1개를 선택하세요</span>
+    </div>
+  </div>
+
+  <!-- 5. 결과 -->
+  <div class="section" style="padding-top:14px;">
+    <div class="section-hd"><h2>추천 조합 결과</h2></div>
+  </div>
+  <div class="results-area" id="m-results" style="padding-top:8px;">
+    <div class="results-empty"><span class="icon">🎱</span>조합 추천 후 당첨번호를 입력하면<br>비교 결과가 여기에 표시됩니다</div>
+  </div>
+
+</div><!-- /mobile-scroll -->
+
+<!-- ══════════ DESKTOP side-by-side ══════════ -->
+<div class="desktop-body">
+
+  <!-- Desktop Left -->
+  <div class="desktop-left">
+    <div class="desktop-left-scroll">
+
+      <div class="section-hd" style="margin-bottom:10px;">
+        <h2 style="font-size:13px;font-weight:700;color:var(--text);">번호 선택</h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="meta"><span id="d-gridCount">0</span> / 6</div>
+          <button class="cam-btn" onclick="openOCR()">🖼️ 스크린샷 입력</button>
+        </div>
+      </div>
+      <div class="tabs" id="d-tabs"></div>
+      <div class="grid-card">
+        <div class="num-grid" id="d-numGrid"></div>
+      </div>
+      <div class="balls-strip" id="d-ballsStrip" style="margin:10px 0 0;">
+        <span class="ball-empty">선택한 번호가 여기에 표시됩니다</span>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="section-hd" style="margin-bottom:8px;"><h2 style="font-size:13px;font-weight:700;">세트 현황</h2></div>
+        <div class="overview-card"><div id="d-overview"></div></div>
+        <div class="summary-row" id="d-summary"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Desktop Right -->
+  <div class="desktop-right">
+    <div class="desktop-right-scroll">
+
+      <!-- Generate -->
+      <div class="section-hd" style="margin-bottom:8px;">
+        <h2 style="font-size:13px;font-weight:700;">조합 추천</h2>
+      </div>
+      <div class="gen-row" style="gap:8px;">
+        <select id="d-countSel">
+          <option value="3">3개</option>
+          <option value="5" selected>5개</option>
+          <option value="7">7개</option>
+          <option value="10">10개</option>
+        </select>
+        <button class="btn primary" onclick="generate()" style="font-size:12px;padding:7px 14px;">조합 추천 →</button>
+      </div>
+      <div class="warn-bar" id="d-warn"></div>
+
+      <!-- Winning -->
+      <div style="margin-top:14px;">
+        <div class="section-hd" style="margin-bottom:8px;">
+          <h2 style="font-size:13px;font-weight:700;">당첨번호 입력</h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;"><span id="d-winCount">0</span>/6 · B:<span id="d-bonusCount">0</span>/1</span>
+            <button class="header-reset" onclick="clearWin()" style="font-size:10px;padding:3px 7px;">초기화</button>
+          </div>
+        </div>
+        <div class="win-grid-card">
+          <div class="num-grid" id="d-winGrid"></div>
+        </div>
+        <div class="win-preview" id="d-winPreview" style="margin-top:8px;padding:8px 12px;min-height:48px;">
+          <span class="win-empty">당첨번호 6개 + 보너스 1개</span>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div style="margin-top:14px;">
+        <div class="section-hd" style="margin-bottom:8px;"><h2 style="font-size:13px;font-weight:700;">추천 조합 결과</h2></div>
+        <div id="d-results">
+          <div class="results-empty"><span class="icon">🎱</span>조합 추천 후 당첨번호를 입력하면<br>비교 결과가 표시됩니다</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div><!-- /desktop-body -->
+
+</div><!-- /app -->
+
+<script>
+const SETS=5, MAX=6;
+let currentSet=0;
+const setData=Array.from({length:SETS},()=>new Set());
+let winNums=new Set(), bonusNum=null, combos=[];
+
+function isMobile(){ return window.innerWidth<768; }
+function rClass(n){ return n<=10?'r1':n<=20?'r2':n<=30?'r3':n<=40?'r4':'r5'; }
+function getDups(){
+  const c={};
+  setData.forEach(s=>s.forEach(n=>{c[n]=(c[n]||0)+1;}));
+  return new Set(Object.entries(c).filter(([,v])=>v>1).map(([k])=>+k));
+}
+function getGrade(hits,hasBonus){
+  if(hits===6) return 1;
+  if(hits===5&&hasBonus) return 2;
+  if(hits===5) return 3;
+  if(hits===4) return 4;
+  if(hits===3) return 5;
+  return 0;
+}
+function gradeLabel(g){ return['미당첨','🏆 1등','🥈 2등','🥉 3등','4등','5등'][g]||'미당첨'; }
+function gradeCls(g){ return['rank-none','rank-1','rank-2','rank-3','rank-4','rank-5'][g]||'rank-none'; }
+
+/* ── Build ── */
+function buildTabs(id){
+  const el=document.getElementById(id);
+  for(let s=0;s<SETS;s++){
+    const t=document.createElement('div');
+    t.className='tab'+(s===0?' active':'');
+    t.textContent=`${s+1}세트`;
+    t.id=`${id}-tab-${s}`;
+    t.onclick=()=>switchSet(s);
+    el.appendChild(t);
+  }
+}
+function buildGrid(id, clickFn){
+  const el=document.getElementById(id);
+  [[1,10],[11,20],[21,30],[31,40],[41,45]].forEach(([from,to])=>{
+    const row=document.createElement('div');
+    row.className='num-row';
+    const lbl=document.createElement('div');
+    lbl.className='row-label';lbl.textContent=`${from}~`;
+    row.appendChild(lbl);
+    for(let n=from;n<=to;n++){
+      const b=document.createElement('div');
+      b.className='nb';b.textContent=n;b.id=`${id}-nb-${n}`;
+      b.onclick=()=>clickFn(n);
+      row.appendChild(b);
+    }
+    // 빈 슬롯으로 10개 맞추기
+    for(let i=to-from+1;i<10;i++){
+      const sp=document.createElement('div');
+      sp.style.cssText='flex:1;max-width:52px;margin:0 2px;visibility:hidden;';
+      row.appendChild(sp);
+    }
+    el.appendChild(row);
+  });
+}
+function buildWinGrid(id){
+  const el=document.getElementById(id);
+  [[1,10],[11,20],[21,30],[31,40],[41,45]].forEach(([from,to])=>{
+    const row=document.createElement('div');
+    row.className='num-row';
+    const lbl=document.createElement('div');
+    lbl.className='row-label';lbl.textContent=`${from}~`;
+    row.appendChild(lbl);
+    for(let n=from;n<=to;n++){
+      const b=document.createElement('div');
+      b.className='wnb';b.textContent=n;b.id=`${id}-wnb-${n}`;
+      b.onclick=()=>toggleWin(n);
+      row.appendChild(b);
+    }
+    for(let i=to-from+1;i<10;i++){
+      const sp=document.createElement('div');
+      sp.style.cssText='flex:1;max-width:52px;margin:0 2px;visibility:hidden;';
+      row.appendChild(sp);
+    }
+    el.appendChild(row);
+  });
+}
+function buildOverview(id){
+  const el=document.getElementById(id);
+  for(let s=0;s<SETS;s++){
+    const r=document.createElement('div');
+    r.className='set-ov-row';r.id=`${id}-ov-${s}`;
+    el.appendChild(r);
+  }
+}
+
+/* ── Toggle ── */
+function toggle(n){
+  const s=currentSet, sel=setData[s];
+  if(sel.has(n)) sel.delete(n);
+  else{ if(sel.size>=MAX) return; sel.add(n); }
+  if(sel.size===MAX && s+1<SETS) setTimeout(()=>switchSet(s+1),180);
+  refreshAll();
+}
+function toggleWin(n){
+  if(winNums.has(n)){ winNums.delete(n); if(bonusNum===n) bonusNum=null; }
+  else if(bonusNum===n){ bonusNum=null; }
+  else if(winNums.size<6){ winNums.add(n); }
+  else if(bonusNum===null){ bonusNum=n; }
+  refreshWin(); if(combos.length>0) renderResults();
+}
+function switchSet(s){
+  currentSet=s;
+  ['m-tabs','d-tabs'].forEach(id=>{
+    for(let i=0;i<SETS;i++){
+      const t=document.getElementById(`${id}-tab-${i}`);
+      if(t) t.classList.toggle('active',i===s);
+    }
+  });
+  const lbl1=document.getElementById('m-gridCount');
+  const lbl2=document.getElementById('d-gridCount');
+  refreshAll();
+}
+
+/* ── Clear ── */
+function clearWin(){
+  winNums.clear();bonusNum=null;
+  refreshWin();if(combos.length>0) renderResults();
+}
+function clearSet(s){ setData[s].clear(); refreshAll(); }
+function resetAll(){
+  setData.forEach(s=>s.clear()); currentSet=0; combos=[];
+  winNums.clear();bonusNum=null;
+  ['m-warn','d-warn'].forEach(id=>{const el=document.getElementById(id);if(el) el.style.display='none';});
+  switchSet(0); refreshAll(); refreshWin(); renderResults();
+}
+
+/* ── Refresh grid buttons ── */
+function refreshGrid(prefix){
+  const dups=getDups(), sel=setData[currentSet];
+  for(let n=1;n<=45;n++){
+    const b=document.getElementById(`${prefix}-nb-${n}`);
+    if(!b) continue;
+    const isSel=sel.has(n), isDup=dups.has(n)&&isSel;
+    b.className='nb'+(isSel?` sel ${rClass(n)}`:'')+(isDup?' dup-ring':'')+((!isSel&&sel.size>=MAX)?' disabled':'');
+  }
+}
+function refreshTabs(prefix){
+  const dups=getDups();
+  for(let s=0;s<SETS;s++){
+    const t=document.getElementById(`${prefix}-tab-${s}`);
+    if(!t) continue;
+    const sd=setData[s], hasDup=[...sd].some(n=>dups.has(n));
+    t.className='tab'+(s===currentSet?' active':'')+(sd.size===MAX&&!hasDup?' done':'')+(hasDup?' has-dup':'');
+    t.textContent=`${s+1}세트`;
+  }
+}
+function refreshOverview(prefix){
+  const dups=getDups();
+  for(let s=0;s<SETS;s++){
+    const row=document.getElementById(`${prefix}-ov-${s}`);
+    if(!row) continue;
+    const sd=setData[s];
+    const sortedS=[...sd].sort((a,b)=>a-b);
+    const slots=Array.from({length:MAX},(_,i)=>sortedS[i]??null);
+    row.innerHTML=
+      `<span class="set-ov-label">${s+1}세트</span>`
+      +`<div class="set-ov-balls">`
+      +slots.map(n=>n===null
+        ?`<div class="sm-ball empty-slot"></div>`
+        :`<div class="sm-ball ${rClass(n)}${dups.has(n)?' dup-ball':''}">${n}</div>`
+      ).join('')+`</div>`
+      +`<span class="set-ov-status${sd.size===MAX?' done':''}">${sd.size}/6</span>`;
+  }
+}
+function refreshBalls(stripId, countId){
+  const dups=getDups(), sel=setData[currentSet];
+  const sorted=[...sel].sort((a,b)=>a-b);
+  const strip=document.getElementById(stripId);
+  const cnt=document.getElementById(countId);
+  if(cnt) cnt.textContent=sel.size;
+  if(!strip) return;
+  if(sorted.length===0){
+    strip.innerHTML='<span class="ball-empty">번호를 선택하면 여기에 표시됩니다</span>';
+  } else {
+    strip.innerHTML=sorted.map(n=>`<div class="ball ${rClass(n)}${dups.has(n)?' dup-ball':''}">${n}</div>`).join('')
+      +`<button class="strip-clear" onclick="clearSet(${currentSet})">초기화</button>`;
+  }
+}
+function refreshSummary(id){
+  const all=[]; setData.forEach(s=>s.forEach(n=>all.push(n)));
+  const unique=[...new Set(all)], dups=getDups(), dupList=[...dups].sort((a,b)=>a-b);
+  const el=document.getElementById(id); if(!el) return;
+  el.innerHTML=all.length===0
+    ?'<span class="summary-text">번호를 선택해주세요</span>'
+    :`<span class="summary-text">전체 <b>${all.length}개</b></span>`
+      +`<span class="badge uniq">고유 ${unique.length}개</span>`
+      +(dupList.length>0?`<span class="badge dup">중복 ${dupList.length}개: ${dupList.join(', ')}</span>`:'');
+}
+
+function refreshAll(){
+  refreshGrid('m-numGrid'); refreshGrid('d-numGrid');
+  refreshTabs('m-tabs'); refreshTabs('d-tabs');
+  refreshBalls('m-ballsStrip','m-gridCount'); refreshBalls('d-ballsStrip','d-gridCount');
+  refreshOverview('m-overview'); refreshOverview('d-overview');
+  refreshSummary('m-summary'); refreshSummary('d-summary');
+}
+
+/* ── Refresh win numbers ── */
+function refreshWin(){
+  ['m-winGrid','d-winGrid'].forEach(prefix=>{
+    for(let n=1;n<=45;n++){
+      const b=document.getElementById(`${prefix}-wnb-${n}`);
+      if(!b) continue;
+      const isWin=winNums.has(n), isBonus=bonusNum===n;
+      b.className='wnb'+(isWin?` win-sel ${rClass(n)}`:'')+(isBonus?' bonus-sel':'');
+    }
+  });
+
+  // win count labels
+  ['m-winCount','d-winCount'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=winNums.size;});
+  ['m-bonusCount','d-bonusCount'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=bonusNum!==null?1:0;});
+
+  // win preview balls
+  const sorted=[...winNums].sort((a,b)=>a-b);
+  ['m-winPreview','d-winPreview'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(winNums.size===0&&bonusNum===null){
+      el.innerHTML='<span class="win-empty">당첨번호 6개 + 보너스 1개를 선택하세요</span>'; return;
+    }
+    el.innerHTML=sorted.map(n=>`<div class="wball ${rClass(n)}">${n}</div>`).join('')
+      +(bonusNum!==null?`<span class="win-sep">+</span><div class="wball is-bonus">${bonusNum}</div>`:'');
+  });
+}
+
+/* ── Generate ── */
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function generate(){
+  const all=[]; setData.forEach(s=>s.forEach(n=>all.push(n)));
+  const pool=[...new Set(all)];
+  const mob=isMobile();
+  const warnId=mob?'m-warn':'d-warn';
+  const countId=mob?'m-countSel':'d-countSel';
+  const warn=document.getElementById(warnId);
+  if(pool.length<6){ warn.textContent=`고유 번호가 ${pool.length}개뿐이에요. 최소 6개 이상 필요해요.`; warn.style.display='block'; return; }
+  warn.style.display='none';
+  const count=+document.getElementById(countId).value;
+  combos=[];const seen=new Set();let tries=0;
+  while(combos.length<count&&tries<30000){
+    tries++;
+    const pick=shuffle(pool).slice(0,6).sort((a,b)=>a-b);
+    const key=pick.join('-');
+    if(!seen.has(key)){seen.add(key);combos.push(pick);}
+  }
+  renderResults();
+  // mobile: scroll to results
+  if(mob){
+    setTimeout(()=>{
+      const el=document.getElementById('m-results');
+      if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+    },100);
+  }
+}
+
+/* ── Render results ── */
+function renderResults(){
+  ['m-results','d-results'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.innerHTML='';
+    if(combos.length===0){
+      el.innerHTML='<div class="results-empty"><span class="icon">🎱</span>조합 추천 후 당첨번호를 입력하면<br>비교 결과가 표시됩니다</div>';
+      return;
+    }
+    const hasWin=winNums.size===6;
+    if(hasWin){
+      const hd=document.createElement('div');
+      hd.className='win-header';
+      hd.innerHTML='<span class="win-header-lbl">당첨</span>'
+        +[...winNums].sort((a,b)=>a-b).map(n=>`<div class="r-ball ${rClass(n)}" style="box-shadow:0 0 0 2px rgba(232,200,74,0.5);">${n}</div>`).join('')
+        +(bonusNum!==null?`<span style="font-size:12px;color:var(--text3);">+</span><div class="r-ball ${rClass(bonusNum)}" style="box-shadow:0 0 0 2px rgba(192,132,252,0.5);">${bonusNum}</div>`:'');
+      el.appendChild(hd);
+    }
+    combos.forEach((combo,idx)=>{
+      const card=document.createElement('div');
+      card.className='result-card';
+      card.style.animationDelay=(idx*0.05)+'s';
+      let h=`<div class="rc-top"><span class="rc-idx">${idx+1}</span><div class="rc-balls">`;
+      if(hasWin){
+        const hits=combo.filter(n=>winNums.has(n)).length;
+        const hasBonus=bonusNum!==null&&combo.includes(bonusNum);
+        const g=getGrade(hits,hasBonus);
+        h+=combo.map(n=>{
+          const isHit=winNums.has(n), isBon=bonusNum===n&&!isHit;
+          return `<div class="r-ball ${rClass(n)}${!isHit&&!isBon?' dimmed':''}${isHit?' hit-ring':''}${isBon?' bonus-ring':''}">${n}</div>`;
+        }).join('');
+        h+=`</div><span class="rank-badge ${gradeCls(g)}">${gradeLabel(g)}</span></div>`;
+        h+=`<div class="rc-compare">`;
+        h+=`<span class="match-hit">${hits}개 일치</span>`;
+        if(hasBonus) h+=`<span class="match-bonus">+ 보너스</span>`;
+        if(!hasWin||hits===0) h+=`<span class="match-none">미당첨</span>`;
+        h+=`<div class="dots">`;
+        for(let i=0;i<6;i++) h+=`<div class="dot ${i<hits?'filled':'empty'}"></div>`;
+        if(hasBonus) h+=`<div class="dot bonus" style="margin-left:2px;"></div>`;
+        h+=`</div></div>`;
+      } else {
+        h+=combo.map(n=>`<div class="r-ball ${rClass(n)}">${n}</div>`).join('');
+        h+=`</div></div>`;
+      }
+      card.innerHTML=h;
+      el.appendChild(card);
+    });
+    if(!hasWin&&combos.length>0){
+      const tip=document.createElement('div');
+      tip.style.cssText='font-size:12px;color:var(--text3);text-align:center;padding:6px 0 4px;';
+      tip.textContent='위에서 당첨번호 6개 + 보너스 1개를 선택하면 비교해드려요';
+      el.appendChild(tip);
+    }
+  });
+}
+
+/* ══════════════════════════════
+   OCR CAMERA LOGIC
+══════════════════════════════ */
+let ocrParsedSets = [];
+
+function openOCR(){
+  document.getElementById('ocrOverlay').classList.add('open');
+  document.getElementById('ocrStep1').style.display='block';
+  document.getElementById('ocrStep2').style.display='none';
+  document.getElementById('ocrEditArea').classList.remove('show');
+  document.getElementById('ocrApplyBtn').style.display='none';
+  document.getElementById('ocrStatus').className='ocr-status';
+  document.getElementById('ocrStatus').textContent='';
+}
+function closeOCR(){
+  document.getElementById('ocrOverlay').classList.remove('open');
+}
+function reupload(){
+  document.getElementById('ocrStep1').style.display='block';
+  document.getElementById('ocrStep2').style.display='none';
+  document.getElementById('ocrEditArea').classList.remove('show');
+  document.getElementById('ocrApplyBtn').style.display='none';
+  document.getElementById('ocrStatus').textContent='';
+  document.getElementById('ocrFileInput').value='';
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('ocrDropzone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image/')) processImageFile(file);
+}
+function handleFileSelect(e){
+  const file = e.target.files[0];
+  if(file) processImageFile(file);
+}
+
+function processImageFile(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = document.getElementById('ocrPreviewImg');
+    img.src = e.target.result;
+    img.onload = function(){
+      // step2로 전환
+      document.getElementById('ocrStep1').style.display='none';
+      document.getElementById('ocrStep2').style.display='flex';
+      // 이미지를 canvas에 그려서 OCR 처리
+      const canvas  = document.getElementById('ocrCanvas');
+      const hidden  = document.getElementById('ocrHidden');
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      hidden.width=iw; hidden.height=ih;
+      hidden.getContext('2d').drawImage(img, 0, 0);
+      canvas.width=iw; canvas.height=ih;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      preprocessAndOCR(canvas);
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+function preprocessAndOCR(canvas){
+  const status = document.getElementById('ocrStatus');
+  status.className='ocr-status scanning';
+  status.textContent='이미지 처리 중...';
+
+  // 1) 2배 업스케일 → 작은 글씨 인식률 향상
+  const scaled = document.createElement('canvas');
+  scaled.width  = canvas.width  * 2;
+  scaled.height = canvas.height * 2;
+  const sCtx = scaled.getContext('2d');
+  sCtx.imageSmoothingEnabled = true;
+  sCtx.imageSmoothingQuality = 'high';
+  sCtx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+
+  // 2) 그레이스케일 + 적응형 대비 강화
+  const img = sCtx.getImageData(0, 0, scaled.width, scaled.height);
+  const d = img.data;
+  // 평균 밝기 계산
+  let sum = 0;
+  for(let i=0;i<d.length;i+=4){
+    sum += 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  }
+  const avg = sum / (d.length/4);
+  // 배경이 밝으면(avg>128) 어두운 글자 → 검정 유지
+  // 배경이 어두우면(avg<128) 밝은 글자 → 반전해서 검정 만들기
+  const brightBg = avg > 128;
+  const thresh = brightBg ? avg * 0.75 : avg * 1.3;
+
+  for(let i=0;i<d.length;i+=4){
+    const gray = 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    let val;
+    if(brightBg){
+      val = gray < thresh ? 0 : 255; // 밝은 배경: 어두운 픽셀=글자=검정
+    } else {
+      val = gray > thresh ? 0 : 255; // 어두운 배경: 밝은 픽셀=글자 → 반전해서 검정
+    }
+    d[i]=d[i+1]=d[i+2]=val;
+    d[i+3]=255;
+  }
+  sCtx.putImageData(img, 0, 0);
+
+  // 3) scaled canvas → ocrCanvas (OCR용, 화면엔 미표시)
+  canvas.width  = scaled.width;
+  canvas.height = scaled.height;
+  canvas.getContext('2d').drawImage(scaled, 0, 0);
+
+  status.textContent='번호 인식 중... (최대 15초)';
+
+  // load tesseract
+  if(typeof Tesseract === 'undefined'){
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
+    s.onload = () => runOCR(canvas);
+    s.onerror = () => { status.className='ocr-status err'; status.textContent='OCR 라이브러리 로드 실패. 네트워크를 확인해주세요.'; };
+    document.head.appendChild(s);
+  } else {
+    runOCR(canvas);
+  }
+}
+
+async function runOCR(canvas){
+  const status = document.getElementById('ocrStatus');
+  try {
+    const worker = await Tesseract.createWorker(['kor','eng']);
+    await worker.setParameters({ tessedit_pageseg_mode: '6' });
+    const { data:{ text } } = await worker.recognize(canvas);
+    await worker.terminate();
+    console.log('[OCR raw]', JSON.stringify(text));
+    parseOCRResult(text);
+  } catch(e){
+    status.className='ocr-status err';
+    status.textContent='인식에 실패했어요. 다시 찍어보세요.';
+    console.error(e);
+  }
+}
+
+function parseOCRResult(rawText){
+  const status = document.getElementById('ocrStatus');
+  ocrParsedSets = [];
+
+  const lines = rawText.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+  const setLabels = ['A','B','C','D','E'];
+  var rowSets = {};
+
+  // ── 1단계: A~E 행 기반 파싱 ──
+  for(var li = 0; li < lines.length; li++){
+    var line = lines[li];
+    var numsInLine = [];
+    var numMatches = line.match(/[0-9]+/g) || [];
+    for(var ni = 0; ni < numMatches.length; ni++){
+      var n = parseInt(numMatches[ni], 10);
+      if(n >= 1 && n <= 45) numsInLine.push(n);
+    }
+    if(numsInLine.length === 0) continue;
+
+    // A~E 라벨 찾기 — 줄 앞에 단독 알파벳
+    var labelMatch = line.match(/^([A-E])\b/i) || line.match(/\s([A-E])\s/i) || line.match(/^([A-E])\s/i);
+    if(labelMatch){
+      var label = labelMatch[1].toUpperCase();
+      if(setLabels.indexOf(label) !== -1){
+        if(!rowSets[label]) rowSets[label] = [];
+        for(var k=0; k<numsInLine.length; k++) rowSets[label].push(numsInLine[k]);
+      }
+    }
+  }
+
+  for(var si = 0; si < setLabels.length; si++){
+    var lbl = setLabels[si];
+    if(rowSets[lbl] && rowSets[lbl].length > 0){
+      var seen = {}; var dedup = [];
+      for(var x=0; x<rowSets[lbl].length; x++){
+        var v = rowSets[lbl][x];
+        if(!seen[v]){ seen[v]=true; dedup.push(v); }
+      }
+      ocrParsedSets.push(dedup.slice(0,6));
+    }
+  }
+
+  // ── 2단계: 줄별 폴백 (한 줄에 4~6개 숫자) ──
+  if(ocrParsedSets.length === 0){
+    console.log('[OCR] 행 파싱 실패 → 줄별 그룹 폴백');
+    for(var li2 = 0; li2 < lines.length; li2++){
+      var line2 = lines[li2];
+      var nums2 = [];
+      var m2 = line2.match(/[0-9]+/g) || [];
+      for(var j=0; j<m2.length; j++){
+        var n2 = parseInt(m2[j],10);
+        if(n2>=1&&n2<=45) nums2.push(n2);
+      }
+      if(nums2.length >= 4){
+        var seen2={}; var dedup2=[];
+        for(var k2=0;k2<nums2.length;k2++){ if(!seen2[nums2[k2]]){seen2[nums2[k2]]=true;dedup2.push(nums2[k2]);} }
+        ocrParsedSets.push(dedup2.slice(0,6));
+        if(ocrParsedSets.length >= 5) break;
+      }
+    }
+  }
+
+  // ── 3단계: 전체 긁기 폴백 ──
+  if(ocrParsedSets.length === 0){
+    console.log('[OCR] 전체 숫자 추출 폴백');
+    var allNums = []; var seen3 = {};
+    var allM = rawText.match(/[0-9]+/g) || [];
+    for(var i3=0;i3<allM.length;i3++){
+      var n3=parseInt(allM[i3],10);
+      if(n3>=1&&n3<=45&&!seen3[n3]){ seen3[n3]=true; allNums.push(n3); }
+    }
+    for(var i4=0;i4<allNums.length;i4+=6){
+      ocrParsedSets.push(allNums.slice(i4,i4+6));
+      if(ocrParsedSets.length>=5) break;
+    }
+  }
+
+  if(ocrParsedSets.length === 0){
+    status.className='ocr-status err';
+    status.textContent='번호를 인식하지 못했어요. 표 전체가 보이도록 다시 찍어보세요.';
+    document.getElementById('ocrApplyBtn').style.display='none';
+    return;
+  }
+
+  var totalNums = 0;
+  for(var ts=0;ts<ocrParsedSets.length;ts++) totalNums+=ocrParsedSets[ts].length;
+  var allFull = ocrParsedSets.every(function(s){ return s.length===6; });
+  var rowMode = Object.keys(rowSets).length > 0;
+
+  if(allFull){
+    status.className='ocr-status ok';
+    status.textContent=ocrParsedSets.length+'세트 인식 완료 ('+(rowMode?'A~E 행 인식':'번호 그룹 인식')+')';
+  } else {
+    status.className='ocr-status scanning';
+    status.textContent=ocrParsedSets.length+'세트 인식 — 6개 미만인 행은 아래에서 수정해주세요';
+  }
+
+  renderOCREdit();
+  document.getElementById('ocrApplyBtn').style.display='block';
+}
+
+function renderOCREdit(){
+  const wrap = document.getElementById('ocrSetsEdit');
+  wrap.innerHTML='';
+  document.getElementById('ocrEditArea').classList.add('show');
+
+  ocrParsedSets.forEach((nums, si)=>{
+    const card = document.createElement('div');
+    card.className='ocr-set-card';
+    const cnt = nums.length;
+    card.innerHTML=`
+      <div class="ocr-set-top">
+        <span class="ocr-set-name">${si+1}세트</span>
+        <span class="ocr-set-cnt ${cnt===6?'ok':'bad'}" id="ocr-cnt-${si}">${cnt}/6</span>
+      </div>
+      <div class="ocr-chips" id="ocr-chips-${si}"></div>
+    `;
+    wrap.appendChild(card);
+    renderChips(si);
+  });
+
+  // add empty set button if < 5 sets
+  if(ocrParsedSets.length < 5){
+    const addBtn = document.createElement('button');
+    addBtn.className='ocr-btn ghost';
+    addBtn.textContent='+ 세트 추가';
+    addBtn.style.marginTop='4px';
+    addBtn.onclick=()=>{
+      ocrParsedSets.push([]);
+      renderOCREdit();
+    };
+    wrap.appendChild(addBtn);
+  }
+}
+
+function renderChips(si){
+  const chips = document.getElementById(`ocr-chips-${si}`);
+  if(!chips) return;
+  chips.innerHTML='';
+  ocrParsedSets[si].forEach((n,ni)=>{
+    const isValid = n>=1&&n<=45;
+    const chip = document.createElement('div');
+    chip.className='chip'+(isValid?' '+rClass(n):' bad');
+    chip.innerHTML=`
+      <input type="number" min="1" max="45" value="${n}"
+        oninput="updateChip(${si},${ni},this.value)"
+        onblur="finalizeChip(${si},${ni},this.value)"
+        onclick="this.select()">
+      <em class="chip-del" onclick="deleteChip(${si},${ni})">✕</em>
+    `;
+    chips.appendChild(chip);
+  });
+  // add button
+  if(ocrParsedSets[si].length < 6){
+    const addBtn = document.createElement('div');
+    addBtn.className='chip-add';
+    addBtn.textContent='+';
+    addBtn.onclick=()=>{ ocrParsedSets[si].push(1); renderOCREdit(); };
+    chips.appendChild(addBtn);
+  }
+  // update count badge
+  const cnt = document.getElementById(`ocr-cnt-${si}`);
+  if(cnt){
+    const l=ocrParsedSets[si].length;
+    cnt.textContent=`${l}/6`;
+    cnt.className='ocr-set-cnt '+(l===6?'ok':'bad');
+  }
+}
+
+function updateChip(si,ni,val){
+  ocrParsedSets[si][ni]=+val;
+  const chips=document.getElementById(`ocr-chips-${si}`);
+  if(!chips) return;
+  const chip=chips.querySelectorAll('.chip')[ni];
+  if(!chip) return;
+  const n=+val;
+  const isValid=n>=1&&n<=45;
+  chip.className='chip'+(isValid?' '+rClass(n):' bad');
+}
+function finalizeChip(si,ni,val){
+  let n=+val;
+  if(isNaN(n)||n<1) n=1;
+  if(n>45) n=45;
+  ocrParsedSets[si][ni]=n;
+  renderChips(si);
+}
+function deleteChip(si,ni){
+  ocrParsedSets[si].splice(ni,1);
+  renderChips(si);
+}
+
+function applyOCR(){
+  // fill setData with parsed sets
+  const setsToFill = Math.min(ocrParsedSets.length, SETS);
+  for(let s=0;s<setsToFill;s++){
+    const nums = ocrParsedSets[s].filter(n=>n>=1&&n<=45).slice(0,6);
+    setData[s]=new Set(nums);
+  }
+  currentSet=0;
+  closeOCR();
+  switchSet(0);
+  refreshAll();
+  // scroll to top of number section on mobile
+  if(window.innerWidth<768){
+    setTimeout(()=>{
+      const el=document.querySelector('.mobile-scroll');
+      if(el) el.scrollTo({top:0,behavior:'smooth'});
+      window.scrollTo({top:0,behavior:'smooth'});
+    },100);
+  }
+}
+
+/* ── Init ── */
+buildTabs('m-tabs'); buildTabs('d-tabs');
+buildGrid('m-numGrid', toggle); buildGrid('d-numGrid', toggle);
+buildWinGrid('m-winGrid'); buildWinGrid('d-winGrid');
+buildOverview('m-overview'); buildOverview('d-overview');
+refreshAll(); refreshWin(); renderResults();
+</script>
+
+<!-- ══════════ OCR CAMERA MODAL ══════════ -->
+<input type="file" id="ocrFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+<div class="ocr-overlay" id="ocrOverlay">
+  <div class="ocr-modal">
+    <div class="ocr-header">
+      <span class="ocr-title">🖼️ 스크린샷으로 번호 입력</span>
+      <button class="ocr-close" onclick="closeOCR()">×</button>
+    </div>
+    <p class="ocr-sub">동행복권 당첨확인 화면 스크린샷을 올려주세요<br><span style="color:var(--text3);font-size:11px;">A~E 번호표가 모두 보이는 화면이면 돼요</span></p>
+
+    <!-- step 1: 업로드 -->
+    <div id="ocrStep1">
+      <div class="ocr-dropzone" id="ocrDropzone"
+           onclick="document.getElementById('ocrFileInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <div class="ocr-dropzone-icon">📂</div>
+        <div class="ocr-dropzone-txt">탭해서 스크린샷 선택<br>또는 여기에 이미지 드래그</div>
+        <div class="ocr-dropzone-sub">갤러리에서 동행복권 당첨확인 화면을 골라주세요</div>
+      </div>
+      <div class="ocr-btn-row" style="margin-top:8px;">
+        <button class="ocr-btn ghost" onclick="closeOCR()">취소</button>
+      </div>
+    </div>
+
+    <!-- step 2: 미리보기 + OCR 결과 -->
+    <div id="ocrStep2" style="display:none;flex-direction:column;gap:12px;">
+      <img id="ocrPreviewImg" class="ocr-preview-img" src="" alt="업로드된 이미지">
+      <canvas id="ocrCanvas" style="display:none;"></canvas>
+      <div class="ocr-status" id="ocrStatus">인식 중...</div>
+
+      <div class="ocr-edit-area" id="ocrEditArea">
+        <div class="ocr-edit-label">인식된 번호를 확인하고 틀린 부분을 수정하세요<br><span style="font-size:11px;color:var(--text3);">번호를 탭하면 직접 수정 · ✕ 누르면 삭제 · + 누르면 추가</span></div>
+        <div id="ocrSetsEdit"></div>
+      </div>
+
+      <div class="ocr-btn-row">
+        <button class="ocr-btn ghost" onclick="reupload()">↩ 다시 올리기</button>
+        <button class="ocr-btn primary" id="ocrApplyBtn" style="display:none;" onclick="applyOCR()">✓ 번호 적용하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+<canvas id="ocrHidden" style="display:none;"></canvas>
+
+</body>
+</html>

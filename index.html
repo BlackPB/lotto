@@ -1177,20 +1177,23 @@ refreshAll(); refreshWin(); renderResults();
       </button>
 
       <!-- 📋 클립보드 붙여넣기 -->
-      <button onclick="ocrPaste()"
-              style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;
-                     background:var(--surface2);border:1px solid var(--border2);border-radius:12px;
-                     cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-bottom:10px;
-                     transition:border-color 0.15s;"
-              onmouseover="this.style.borderColor='var(--accent)'"
-              onmouseout="this.style.borderColor=''">
-        <span style="font-size:24px;flex-shrink:0;">📋</span>
-        <div style="text-align:left;">
-          <div style="font-size:14px;font-weight:700;color:var(--text);">클립보드에서 붙여넣기</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;">버튼 탭 → 붙여넣기 영역에 붙여넣기</div>
-        </div>
-        <span style="margin-left:auto;font-size:18px;color:var(--text3);">›</span>
-      </button>
+      <div id="ocrPasteWrap" style="margin-bottom:10px;">
+        <button id="ocrPasteBtn" onclick="ocrPaste()"
+                style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;
+                       background:var(--surface2);border:1px solid var(--border2);border-radius:12px;
+                       cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:border-color 0.15s;"
+                onmouseover="this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.borderColor=''">
+          <span style="font-size:24px;flex-shrink:0;">📋</span>
+          <div style="text-align:left;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);">클립보드에서 붙여넣기</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="ocrPasteHint">복사한 이미지를 바로 붙여넣기</div>
+          </div>
+          <span style="margin-left:auto;font-size:18px;color:var(--text3);">›</span>
+        </button>
+        <!-- 붙여넣기 영역 (필요할 때만 표시) -->
+        <div id="ocrPasteArea" style="display:none;margin-top:8px;"></div>
+      </div>
 
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <div style="flex:1;height:1px;background:var(--border);"></div>
@@ -1213,7 +1216,6 @@ refreshAll(); refreshWin(); renderResults();
                style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
       </label>
 
-      <div id="ocrPasteMsg" style="font-size:12px;text-align:center;min-height:16px;margin-top:6px;"></div>
 
       <div class="modal-btn-row" style="margin-top:10px;">
         <button class="modal-btn" onclick="closeOcrModal()">취소</button>
@@ -1632,46 +1634,80 @@ function ocrRetry(){
   ocrSets = [];
 }
 function ocrPaste(){
-  // 바로 붙여넣기 영역 표시 (iOS Safari에서 Clipboard API 이미지 읽기 불안정)
-  ocrPasteFallback();
+  var hint     = document.getElementById('ocrPasteHint');
+  var areaWrap = document.getElementById('ocrPasteArea');
+
+  // Clipboard API 시도 (Chrome 데스크탑 등)
+  if(navigator.clipboard && navigator.clipboard.read){
+    navigator.clipboard.read()
+      .then(function(items){
+        for(var i=0;i<items.length;i++){
+          var t = items[i].types.find(function(x){ return x.startsWith('image/'); });
+          if(t) return items[i].getType(t).then(function(blob){ ocrProcess(blob); });
+        }
+        ocrShowPasteBtn();
+      })
+      .catch(function(){ ocrShowPasteBtn(); });
+    return;
+  }
+  ocrShowPasteBtn();
 }
 
-function ocrPasteFallback(){
-  var msg = document.getElementById('ocrPasteMsg');
-  msg.style.color = 'var(--accent)';
-  msg.textContent = '아래 영역을 탭한 뒤 길게 눌러 붙여넣기 해주세요';
+function ocrShowPasteBtn(){
+  var hint     = document.getElementById('ocrPasteHint');
+  var areaWrap = document.getElementById('ocrPasteArea');
+  if(areaWrap.style.display !== 'none'){ return; }
 
-  var area = document.getElementById('ocrPasteArea');
-  if(!area){
-    area = document.createElement('div');
-    area.id = 'ocrPasteArea';
-    area.contentEditable = 'true';
-    area.style.cssText = 'width:100%;min-height:48px;border-radius:8px;border:1.5px dashed var(--accent);'
-      +'background:rgba(232,200,74,0.06);display:flex;align-items:center;justify-content:center;'
-      +'font-size:13px;color:var(--accent);cursor:text;padding:12px;text-align:center;'
-      +'margin-top:6px;outline:none;';
-    area.textContent = '여기를 탭한 뒤 붙여넣기';
-    area.addEventListener('paste', function(e){
-      e.preventDefault();
-      var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-      for(var i=0;i<items.length;i++){
-        if(items[i].type.startsWith('image/')){
-          var blob = items[i].getAsFile();
-          if(blob){
-            area.remove();
-            msg.textContent = '';
-            ocrProcess(blob);
-            return;
-          }
+  hint.textContent = '아래 버튼을 탭하면 붙여넣기할 수 있어요';
+  hint.style.color = 'var(--accent)';
+
+  // iOS용: contentEditable div로 paste 이벤트 캐치
+  var pasteTarget = document.createElement('div');
+  pasteTarget.contentEditable = 'true';
+  pasteTarget.style.cssText = 'position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;';
+
+  var btn = document.createElement('button');
+  btn.textContent = '📋  여기를 탭해서 붙여넣기';
+  btn.style.cssText = 'width:100%;padding:13px;border-radius:10px;border:1.5px solid var(--accent);'
+    + 'background:rgba(232,200,74,0.08);color:var(--accent);font-size:14px;font-weight:700;'
+    + 'cursor:pointer;font-family:"Noto Sans KR",sans-serif;display:block;';
+
+  function handlePaste(e){
+    e.preventDefault();
+    var cd = e.clipboardData || window.clipboardData || {};
+    var items = cd.items || [];
+    for(var i=0;i<items.length;i++){
+      if(items[i].type && items[i].type.startsWith('image/')){
+        var blob = items[i].getAsFile();
+        if(blob){
+          areaWrap.style.display = 'none';
+          hint.textContent = '복사한 이미지를 바로 붙여넣기';
+          hint.style.color = '';
+          ocrProcess(blob);
+          return;
         }
       }
-      msg.style.color = 'var(--dup)';
-      msg.textContent = '이미지를 찾을 수 없어요. 이미지를 복사한 뒤 다시 시도해주세요.';
-    });
-    msg.insertAdjacentElement('afterend', area);
+    }
+    hint.textContent = '이미지를 찾을 수 없어요. 이미지를 먼저 복사해주세요.';
+    hint.style.color = 'var(--dup)';
   }
-  area.focus();
+
+  pasteTarget.addEventListener('paste', handlePaste);
+  btn.addEventListener('paste',  handlePaste);
+
+  btn.addEventListener('click', function(e){
+    e.preventDefault();
+    pasteTarget.focus();
+    try { document.execCommand('paste'); } catch(ex){}
+  });
+
+  areaWrap.innerHTML = '';
+  areaWrap.appendChild(pasteTarget);
+  areaWrap.appendChild(btn);
+  areaWrap.style.display = 'block';
+  setTimeout(function(){ pasteTarget.focus(); }, 80);
 }
+
 
 function ocrDrop(e){
   e.preventDefault();
